@@ -74,9 +74,18 @@ class KnightTemplate(ChessPieceTemplate):
         "min wall thickness and avoid needle-thin tips that snap when removing supports.",
         "Deep undercuts beneath the jaw and behind the neck leave support scars on "
         "show faces -- blend them with fillets and keep undercuts shallow.",
-        "The neck is the load-bearing cross-section under a forward-heavy head -- keep "
-        "it thick enough that the piece is not fragile and does not topple on a "
-        "moving-bed printer.",
+        # --- shipping/durability emphasis (knight is the most fragile piece) ---
+        "Make the base slightly wider than strict Staunton proportion -- it lowers the "
+        "centre of gravity, reduces tipping, and protects against breakage in transit.",
+        "Avoid thin swords, antennas, weapons, or extended arms on the piece unless they "
+        "are designed as a separate detachable part; thin protrusions are the first thing "
+        "to snap in shipping.",
+        "Reinforce the neck: it is the load-bearing cross-section under a forward-heavy "
+        "head and the #1 failure point in shipping. Keep it generously thick; do not "
+        "neck it down for looks.",
+        "Prefer a robust, near-monolithic body. If detail demands it, a two-piece design "
+        "(body + base / weighted insert that join after printing) reduces failure points "
+        "and makes the piece easier and safer to pack.",
     ]
     default_target: TargetDimensions = _std(PieceType.KNIGHT)
 
