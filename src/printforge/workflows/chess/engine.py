@@ -138,6 +138,7 @@ def run_chess_workflow(
             personalization=personalization or None,
             reference_images=reference_images or None,
             max_iters=request.max_repairs + 1,
+            refine_rounds=request.refine_rounds,
             progress=lambda m: say(f"      {m}"),
         )
         gen = outcome.generation

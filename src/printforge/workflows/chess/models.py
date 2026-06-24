@@ -73,6 +73,11 @@ class ChessWorkflowRequest(BaseModel):
         description="If STEP export fails, feed the error back to the model to fix its "
         "code and retry, up to this many times.",
     )
+    refine_rounds: int = Field(
+        default=2, ge=0, le=4,
+        description="After the piece is geometrically valid, spend this many extra "
+        "render-in-the-loop passes elevating the design (less basic, more sculptural).",
+    )
 
     @model_validator(mode="after")
     def _validate(self) -> ChessWorkflowRequest:

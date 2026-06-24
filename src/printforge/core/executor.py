@@ -37,6 +37,12 @@ if result is None:
     raise SystemExit("CAD code did not define a `{RESULT_VAR}` solid")
 from build123d import export_step
 export_step(result, sys.argv[2])
+# Also export an STL alongside (for the render-in-the-loop refinement stage).
+try:
+    from build123d import export_stl
+    export_stl(result, sys.argv[2].rsplit(".", 1)[0] + ".stl")
+except Exception:
+    pass
 
 # Geometry diagnostics for the validation stage.
 import json as _json
@@ -68,6 +74,7 @@ class ExecutionResult(BaseModel):
     ok: bool
     step_path: str | None = None
     step_bytes_len: int | None = None
+    stl_path: str | None = None
     skipped: bool = False
     error: str | None = None
     # Geometry diagnostics (populated on success) for the validation stage.
@@ -138,10 +145,12 @@ def execute_to_step(
                 diag = {}
             break
 
+    stl_candidate = out_path.with_suffix(".stl")
     return ExecutionResult(
         ok=True,
         step_path=str(out_path),
         step_bytes_len=out_path.stat().st_size,
+        stl_path=str(stl_candidate) if stl_candidate.exists() else None,
         n_solids=diag.get("n_solids"),
         volume_mm3=diag.get("volume_mm3"),
         bbox_mm=diag.get("bbox_mm"),

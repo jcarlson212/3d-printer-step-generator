@@ -144,3 +144,73 @@ def revise_piece(
             prompt_input.append(BinaryContent(data=img, media_type="image/png"))
         return agent.run_sync(prompt_input).output
     return agent.run_sync(prompt).output
+
+
+# A standing art-direction critique applied every refinement round. Targets the
+# common ways LLM-generated CAD looks amateurish.
+_REFINE_CRITIQUE = """\
+Look critically at the rendered images of YOUR OWN current output above, then make it
+markedly more sculptural and less basic. It is currently valid but likely too simple.
+Elevate it -- raise the level of craft, do not just nudge it:
+- Replace any primitive-looking stand-ins with real sculpted form. A mane must be
+  flowing locks (sweep a ribbon down the crest and cut groove-locks), NEVER a cluster
+  of spheres. Nostrils and eyes are SHALLOW RECESSED CUTS flush with the surface, never
+  protruding balls. The nose is the smoothly blended END of the muzzle taper, not a
+  stuck-on sphere.
+- No free-floating or stuck-on primitives: every added mass must be blended/fused into
+  the body so it reads as carved from one block; every sphere is either a smoothly
+  merged mass or a recess cut INTO the surface.
+- Give the silhouette real curvature and rhythm (ogee profiles, more loft sections),
+  not a plain taper.
+- If the theme is a ruin/antiquity, the base should read as a broken fluted column drum
+  with an irregular fractured top -- not a clean cylinder.
+- Add appropriate, restrained detail and finishing fillets so seams read as carved stone.
+Treat the reference images and example recipes as ILLUSTRATIONS OF TECHNIQUES to
+generalize -- compose your own richer structure; do not stitch the example shapes
+together literally. Keep it ONE valid watertight solid, on-theme, and printable."""
+
+
+def refine_piece(
+    template: BasePieceTemplate,
+    *,
+    provider_cfg: ProviderConfig,
+    prev_code: str,
+    render_images: list[bytes],
+    original_brief: str | None = None,
+    round_num: int = 1,
+    rounds_total: int = 1,
+    reference_images: list[bytes] | None = None,
+) -> CadGeneration:
+    """Aesthetic refinement: show the model its rendered output and elevate the design.
+
+    This runs AFTER the piece is geometrically valid -- the point is to spend
+    iterations making it less basic/more sculptural, not to fix errors.
+    """
+    from pydantic_ai import BinaryContent
+
+    model = build_model(provider_cfg)
+    agent = Agent(
+        model,
+        output_type=CadGeneration,
+        system_prompt=template.system_prompt(),
+        model_settings=caching_model_settings(provider_cfg),
+        retries=3,
+    )
+    brief_block = f"--- ORIGINAL BRIEF ---\n{original_brief}\n\n" if original_brief else ""
+    text = (
+        f"Refinement pass {round_num} of {rounds_total}.\n\n"
+        f"{brief_block}"
+        f"--- CURRENT CODE ---\n{prev_code}\n\n"
+        f"{_REFINE_CRITIQUE}\n\n"
+        "Return the improved, complete code (final solid assigned to `result`) and an "
+        "updated detailed_explanation describing the specific improvements you made."
+    )
+    parts: list[object] = ["Rendered views of your current output:"]
+    for img in render_images:
+        parts.append(BinaryContent(data=img, media_type="image/png"))
+    if reference_images:
+        parts.append("Reference images (technique/proportion inspiration, do not copy):")
+        for img in reference_images:
+            parts.append(BinaryContent(data=img, media_type="image/png"))
+    parts.append(text)
+    return agent.run_sync(parts).output

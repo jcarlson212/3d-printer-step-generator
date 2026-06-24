@@ -59,6 +59,62 @@ def _render_one(stl_path: Path, views: tuple[tuple[int, int], ...]) -> list[byte
     return out
 
 
+def render_solid_views(
+    stl_path: str | Path,
+    *,
+    views: tuple[tuple[int, int], ...] = ((16, -65), (16, 110)),
+    max_tris: int = 90000,
+) -> list[bytes]:
+    """Shaded PNG views of a produced solid, for render-in-the-loop self-critique.
+
+    Normal-based shading (vs flat silhouette) so the model can see surface form and
+    texture in its own output. Returns [] if vision deps are missing or render fails.
+    """
+    if not vision_available():
+        return []
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+        from stl import mesh as stl_mesh
+
+        m = stl_mesh.Mesh.from_file(str(stl_path))
+        v, n = m.vectors, m.normals.copy()
+        if len(v) > max_tris:
+            idx = np.linspace(0, len(v) - 1, max_tris).astype(int)
+            v, n = v[idx], n[idx]
+        light = np.array([0.3, 0.5, 0.8])
+        light = light / np.linalg.norm(light)
+        nl = np.linalg.norm(n, axis=1, keepdims=True)
+        nl[nl == 0] = 1
+        shade = np.clip((n / nl) @ light, 0, 1) * 0.7 + 0.3
+        colors = np.stack([shade * 0.86, shade * 0.86, shade * 0.88, np.ones_like(shade)], axis=1)
+        pts = v.reshape(-1, 3)
+        mn, mx = pts.min(0), pts.max(0)
+        ctr = (mn + mx) / 2
+        span = float((mx - mn).max()) / 2 or 1.0
+        out: list[bytes] = []
+        for elev, azim in views:
+            fig = plt.figure(figsize=(4, 4))
+            ax = fig.add_subplot(111, projection="3d")
+            ax.add_collection3d(Poly3DCollection(v, facecolors=colors, linewidths=0))
+            ax.set_xlim(ctr[0] - span, ctr[0] + span)
+            ax.set_ylim(ctr[1] - span, ctr[1] + span)
+            ax.set_zlim(ctr[2] - span, ctr[2] + span)
+            ax.view_init(elev=elev, azim=azim)
+            ax.set_axis_off()
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=90, bbox_inches="tight")
+            plt.close(fig)
+            out.append(buf.getvalue())
+        return out
+    except Exception:
+        return []
+
+
 def render_references(
     *,
     stl_dir: str | Path | None = None,
