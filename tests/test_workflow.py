@@ -14,8 +14,12 @@ from printforge.workflows.chess.templates import get_template
 
 def _order() -> OrderInfo:
     return OrderInfo(
-        first_name="Ada", last_name="Lovelace", email="ada@example.com",
-        shipping_address=ShippingAddress(line1="1 Test St", city="X", postal_code="12345"),
+        first_name="Ada",
+        last_name="Lovelace",
+        email="ada@example.com",
+        shipping_address=ShippingAddress(
+            line1="1 Test St", city="X", postal_code="12345", country="US"
+        ),
     )
 
 
@@ -74,9 +78,13 @@ def test_prompt_includes_machine_material_gotchas_and_theme():
     machine, material = resolve_machine_material(req.machine_key, req.material_key)
     template = get_template(PieceType.KNIGHT)
     prompt = template.user_prompt(
-        machine=machine, material=material, color="white",
-        theme=req.theme, target=req.target_for(PieceType.KNIGHT),
-        gotchas=req.gotchas_for(PieceType.KNIGHT), prior=None,
+        machine=machine,
+        material=material,
+        color="white",
+        theme=req.theme,
+        target=req.target_for(PieceType.KNIGHT),
+        gotchas=req.gotchas_for(PieceType.KNIGHT),
+        prior=None,
     )
     assert "Bambu Lab A1 mini" in prompt
     assert "Bambu PLA Basic" in prompt
@@ -96,10 +104,14 @@ def test_new_order_fields_in_summary():
     from printforge.core.order import OrderInfo, ShippingAddress, ShippingMethod
 
     o = OrderInfo(
-        first_name="A", last_name="B", email="a@b.com",
-        shipping_address=ShippingAddress(line1="1 St", city="X", postal_code="12345"),
+        first_name="A",
+        last_name="B",
+        email="a@b.com",
+        shipping_address=ShippingAddress(line1="1 St", city="X", postal_code="12345", country="US"),
         shipping_method=ShippingMethod.EXPEDITED,
-        filament_shade="marble white", engraving_message="GC", marketing_opt_in=True,
+        filament_shade="marble white",
+        engraving_message="GC",
+        marketing_opt_in=True,
     )
     joined = "\n".join(o.summary_lines())
     assert "expedited" in joined
@@ -111,9 +123,12 @@ def test_personalization_threaded_into_prompt():
     from printforge.core.registry import resolve_machine_material
 
     o = OrderInfo(
-        first_name="A", last_name="B", email="a@b.com",
-        shipping_address=ShippingAddress(line1="1 St", city="X", postal_code="12345"),
-        engraving_message="Selene", filament_shade="weathered marble",
+        first_name="A",
+        last_name="B",
+        email="a@b.com",
+        shipping_address=ShippingAddress(line1="1 St", city="X", postal_code="12345", country="US"),
+        engraving_message="Selene",
+        filament_shade="weathered marble",
     )
     req = _req(order=o)
     machine, material = resolve_machine_material(req.machine_key, req.material_key)
@@ -124,13 +139,35 @@ def test_personalization_threaded_into_prompt():
     if req.order.engraving_message:
         personalization.append(f"engrave {req.order.engraving_message}")
     prompt = template.user_prompt(
-        machine=machine, material=material, color="white", theme=None,
+        machine=machine,
+        material=material,
+        color="white",
+        theme=None,
         target=req.target_for(PieceType.KNIGHT),
-        gotchas=req.gotchas_for(PieceType.KNIGHT), prior=None,
+        gotchas=req.gotchas_for(PieceType.KNIGHT),
+        prior=None,
         personalization=personalization,
     )
     assert "Customer personalization" in prompt
     assert "Selene" in prompt
+
+
+def test_email_body_includes_dimensions_and_country():
+    from printforge.workflows.chess.engine import _build_email_body
+    from printforge.workflows.chess.models import PieceArtifact
+
+    req = _req()
+    art = PieceArtifact(
+        color=Color.WHITE,
+        piece=PieceType.KNIGHT,
+        cad_code="result = None",
+        detailed_explanation="...",
+        step_filename="white_knight.step",
+    )
+    body = _build_email_body(req, [art])
+    assert "Target dimensions" in body
+    assert "60 mm tall" in body  # standard Staunton knight height
+    assert "US" in body  # country flows through ship-to line
 
 
 def test_delivery_save_to_disk(tmp_path):

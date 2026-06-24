@@ -12,7 +12,7 @@ from pydantic_ai import Agent
 
 from .profiles import MachineProfile, MaterialProfile
 from .prompt import BasePieceTemplate, PriorPieceContext, TargetDimensions
-from .providers import ProviderConfig, build_model
+from .providers import ProviderConfig, build_model, caching_model_settings
 
 
 class CadGeneration(BaseModel):
@@ -54,7 +54,7 @@ def generate_piece(
         # CAD code + a thorough explanation is long; give the model room so the
         # output isn't truncated before `detailed_explanation`, and allow a few
         # re-tries if the structured output comes back incomplete.
-        model_settings={"max_tokens": 16384},
+        model_settings=caching_model_settings(provider_cfg),
         retries=3,
     )
     user_prompt = template.user_prompt(
@@ -106,7 +106,7 @@ def revise_piece(
         model,
         output_type=CadGeneration,
         system_prompt=template.system_prompt(),
-        model_settings={"max_tokens": 16384},
+        model_settings=caching_model_settings(provider_cfg),
         retries=3,
     )
     if executed:

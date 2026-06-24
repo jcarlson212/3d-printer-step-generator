@@ -54,9 +54,16 @@ def _build_email_body(request: ChessWorkflowRequest, artifacts: list[PieceArtifa
     parts.append("PER-PIECE DETAILS")
     parts.append("=" * 70)
     for a in artifacts:
+        target = request.target_for(a.piece)
         parts.append("")
         parts.append(f"--- {a.color.value} {a.piece.value} "
                      f"({a.step_filename or 'no STEP exported'}) ---")
+        parts.append(
+            f"Target dimensions: ~{target.height_mm:g} mm tall, "
+            f"~{target.max_footprint_mm:g} mm base footprint."
+        )
+        if a.step_bytes_len:
+            parts.append(f"STEP size: {a.step_bytes_len} bytes.")
         if a.error:
             parts.append(f"[!] STEP export issue: {a.error}")
         parts.append("")

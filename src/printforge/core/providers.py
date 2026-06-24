@@ -64,6 +64,24 @@ class ProviderConfig(BaseModel):
         return self
 
 
+def caching_model_settings(cfg: ProviderConfig, *, max_tokens: int = 16384) -> dict:
+    """Model settings with prompt caching enabled for the provider.
+
+    The large, stable system prompt (CAD masterclass + rules + reference docs) is the
+    same on every generate/revise call and across pieces, so caching it as the prefix
+    is a big win. Anthropic and Bedrock support manual cache breakpoints; OpenAI caches
+    automatically; LM Studio has no caching.
+    """
+    settings: dict = {"max_tokens": max_tokens}
+    if cfg.provider is Provider.ANTHROPIC:
+        settings["anthropic_cache_instructions"] = True
+        settings["anthropic_cache_messages"] = True
+    elif cfg.provider is Provider.BEDROCK:
+        settings["bedrock_cache_instructions"] = True
+        settings["bedrock_cache_messages"] = True
+    return settings
+
+
 def build_model(cfg: ProviderConfig) -> Model:
     """Construct a pydantic-ai ``Model`` from a :class:`ProviderConfig`."""
     if cfg.provider is Provider.ANTHROPIC:

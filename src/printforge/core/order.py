@@ -33,7 +33,7 @@ class ShippingAddress(BaseModel):
         default=None, description="State/province/region; optional for some countries."
     )
     postal_code: str = Field(min_length=3, max_length=12)
-    country: str = Field(default="US", min_length=2, description="ISO country name or code.")
+    country: str = Field(min_length=2, description="Country (required). ISO name or code.")
 
     @field_validator("postal_code")
     @classmethod

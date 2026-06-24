@@ -10,7 +10,7 @@ from printforge.core.registry import resolve_machine_material
 
 
 def _addr() -> ShippingAddress:
-    return ShippingAddress(line1="1 Test St", city="Townsville", postal_code="12345")
+    return ShippingAddress(line1="1 Test St", city="Townsville", postal_code="12345", country="US")
 
 
 def test_resolve_defaults_to_bambu_pla():
@@ -44,6 +44,11 @@ def test_order_auto_id_and_summary():
     joined = "\n".join(o.summary_lines())
     assert "ada@example.com" in joined
     assert "framed piece" in joined
+
+
+def test_country_is_required():
+    with pytest.raises(ValidationError):
+        ShippingAddress(line1="1 Test St", city="X", postal_code="12345")  # no country
 
 
 def test_address_postal_must_have_alnum():
