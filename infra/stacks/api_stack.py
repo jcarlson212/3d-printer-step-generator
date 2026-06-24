@@ -39,6 +39,7 @@ class ChessStepApiStack(Stack):
         scope: Construct,
         construct_id: str,
         *,
+        app_id: str,
         delivery_sender: str,
         bedrock_model_id: str,
         **kwargs,
@@ -50,6 +51,7 @@ class ChessStepApiStack(Stack):
         fn = _lambda.DockerImageFunction(
             self,
             "GenerateFn",
+            function_name=f"{app_id}-chess-step-generate",
             code=_lambda.DockerImageCode.from_image_asset(
                 directory=str(REPO_ROOT),
                 file="infra/lambda/Dockerfile",
@@ -81,8 +83,8 @@ class ChessStepApiStack(Stack):
         api = apigw.RestApi(
             self,
             "ChessStepApi",
-            rest_api_name="chess-step-api",
-            description="Generate 3D-printable chess piece STEP files via Bedrock.",
+            rest_api_name=f"{app_id}-chess-step-api",
+            description="Generate 3D-printable chess piece STEP files via Bedrock. [app:cadgen]",
             deploy_options=apigw.StageOptions(stage_name="prod"),
         )
         generate = api.root.add_resource("generate")
@@ -92,9 +94,10 @@ class ChessStepApiStack(Stack):
             api_key_required=True,
         )
 
-        key = api.add_api_key("ChessStepApiKey")
+        key = api.add_api_key("ChessStepApiKey", api_key_name=f"{app_id}-chess-step-key")
         plan = api.add_usage_plan(
             "ChessStepUsagePlan",
+            name=f"{app_id}-chess-step-plan",
             throttle=apigw.ThrottleSettings(rate_limit=5, burst_limit=10),
         )
         plan.add_api_key(key)

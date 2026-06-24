@@ -38,8 +38,14 @@ def generate_piece(
     target: TargetDimensions,
     gotchas: list[str],
     prior: list[PriorPieceContext] | None = None,
+    personalization: list[str] | None = None,
+    reference_images: list[bytes] | None = None,
 ) -> CadGeneration:
-    """Run one generation step and return structured CAD + explanation."""
+    """Run one generation step and return structured CAD + explanation.
+
+    If ``reference_images`` are supplied (e.g. rendered views of reference STLs)
+    they are sent alongside the text prompt for vision-capable models.
+    """
     model = build_model(provider_cfg)
     agent = Agent(
         model,
@@ -54,6 +60,19 @@ def generate_piece(
         target=target,
         gotchas=gotchas,
         prior=prior,
+        personalization=personalization,
     )
-    result = agent.run_sync(user_prompt)
+
+    prompt_input: list[object] = [user_prompt]
+    if reference_images:
+        from pydantic_ai import BinaryContent
+
+        prompt_input.append(
+            "Reference images of existing physical knight pieces (for silhouette / "
+            "proportion / styling inspiration -- do not copy exactly):"
+        )
+        for img in reference_images:
+            prompt_input.append(BinaryContent(data=img, media_type="image/png"))
+
+    result = agent.run_sync(prompt_input if reference_images else user_prompt)
     return result.output

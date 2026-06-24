@@ -34,6 +34,9 @@ cdk.out/
 out/
 *.local.json
 
+# Optionally-fetched upstream reference docs (not vendored)
+src/printforge/resources/downloaded/
+
 # OS / editor
 .DS_Store
 .idea/

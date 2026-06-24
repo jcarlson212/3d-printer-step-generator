@@ -85,6 +85,54 @@ def test_prompt_includes_machine_material_gotchas_and_theme():
     assert "result" in template.system_prompt().lower()
 
 
+def test_system_prompt_includes_reference_docs():
+    template = get_template(PieceType.KNIGHT)
+    sp = template.system_prompt()
+    assert "REFERENCE: build123d" in sp
+    assert "REFERENCE: knight_guide" in sp
+
+
+def test_new_order_fields_in_summary():
+    from printforge.core.order import OrderInfo, ShippingAddress, ShippingMethod
+
+    o = OrderInfo(
+        first_name="A", last_name="B", email="a@b.com",
+        shipping_address=ShippingAddress(line1="1 St", city="X", postal_code="12345"),
+        shipping_method=ShippingMethod.EXPEDITED,
+        filament_shade="marble white", engraving_message="GC", marketing_opt_in=True,
+    )
+    joined = "\n".join(o.summary_lines())
+    assert "expedited" in joined
+    assert "marble white" in joined
+    assert "GC" in joined
+
+
+def test_personalization_threaded_into_prompt():
+    from printforge.core.registry import resolve_machine_material
+
+    o = OrderInfo(
+        first_name="A", last_name="B", email="a@b.com",
+        shipping_address=ShippingAddress(line1="1 St", city="X", postal_code="12345"),
+        engraving_message="Selene", filament_shade="weathered marble",
+    )
+    req = _req(order=o)
+    machine, material = resolve_machine_material(req.machine_key, req.material_key)
+    template = get_template(PieceType.KNIGHT)
+    personalization = []
+    if req.order.filament_shade:
+        personalization.append(f"shade {req.order.filament_shade}")
+    if req.order.engraving_message:
+        personalization.append(f"engrave {req.order.engraving_message}")
+    prompt = template.user_prompt(
+        machine=machine, material=material, color="white", theme=None,
+        target=req.target_for(PieceType.KNIGHT),
+        gotchas=req.gotchas_for(PieceType.KNIGHT), prior=None,
+        personalization=personalization,
+    )
+    assert "Customer personalization" in prompt
+    assert "Selene" in prompt
+
+
 def test_delivery_save_to_disk(tmp_path):
     cfg = DeliveryConfig(method=DeliveryMethod.SAVE, save_dir=str(tmp_path))
     res = deliver(

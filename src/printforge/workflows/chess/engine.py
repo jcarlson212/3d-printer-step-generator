@@ -81,6 +81,32 @@ def run_chess_workflow(
     say(f"Scope: {len(units)} piece(s) -> " +
         ", ".join(f"{c.value} {p.value}" for c, p in units))
 
+    # Customer personalization derived from the order, injected into every prompt.
+    personalization: list[str] = []
+    if request.order.filament_shade:
+        personalization.append(
+            f"This will print in '{request.order.filament_shade}' filament -- lean the "
+            "surface treatment and detail toward that look."
+        )
+    if request.order.engraving_message:
+        personalization.append(
+            f"Engrave the text '{request.order.engraving_message}' on the base as a "
+            "shallow recessed inscription, sized at or above the printer's min feature "
+            "so it resolves cleanly."
+        )
+
+    # Reference images (rendered from STLs and/or provided files) for vision models.
+    reference_images: list[bytes] = []
+    if request.use_vision:
+        from printforge.core.vision import render_references
+
+        reference_images = render_references(
+            stl_dir=request.reference_stl_dir,
+            image_paths=request.reference_images,
+            max_images=request.max_reference_images,
+        )
+        say(f"Vision: {len(reference_images)} reference image(s) prepared.")
+
     artifacts: list[PieceArtifact] = []
     prior: list[PriorPieceContext] = []
 
@@ -100,6 +126,8 @@ def run_chess_workflow(
             target=target,
             gotchas=gotchas,
             prior=prior,
+            personalization=personalization or None,
+            reference_images=reference_images or None,
         )
 
         # Persist the generated code + explanation for traceability.
@@ -153,10 +181,16 @@ def run_chess_workflow(
         piece_desc = ", ".join(f"{a.color.value} {a.piece.value}" for a in artifacts)
         subject = f"[{request.order.order_id}] Chess STEP files: {piece_desc}"
         say(f"Delivering to {request.delivery.recipient}...")
-        delivery = deliver(
-            request.delivery, subject=subject, body=body, attachments=attachments
-        )
-        result.delivery_detail = delivery.detail
-        say(f"Delivery: {delivery.detail}")
+        # Delivery must not sink a successful generation (e.g. SES not yet verified):
+        # the STEP + explanation are already on disk; record the failure and move on.
+        try:
+            delivery = deliver(
+                request.delivery, subject=subject, body=body, attachments=attachments
+            )
+            result.delivery_detail = delivery.detail
+            say(f"Delivery: {delivery.detail}")
+        except Exception as e:
+            result.delivery_detail = f"delivery failed: {e}"
+            say(f"Delivery FAILED (generation still succeeded): {e}")
 
     return result

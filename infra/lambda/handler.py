@@ -38,7 +38,7 @@ def handler(event: dict, context: object) -> dict:  # noqa: ARG001
     data["provider"] = ProviderConfig(
         provider=Provider.BEDROCK,
         model=os.environ.get("BEDROCK_MODEL_ID"),
-        aws_region=os.environ.get("AWS_REGION", "us-east-1"),
+        aws_region=os.environ.get("AWS_REGION", "us-east-2"),
     ).model_dump(mode="json")
 
     try:

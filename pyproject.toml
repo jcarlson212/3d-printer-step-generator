@@ -25,6 +25,8 @@ dependencies = [
 # Pulls in OpenCascade (OCP), which is large -- only needed where STEP is rendered
 # (local runs that export, and the Lambda container image).
 cad = ["build123d>=0.7"]
+# Vision: render reference STLs to images to guide a vision-capable model.
+vision = ["numpy-stl>=3.1", "matplotlib>=3.8"]
 # Cloud / Bedrock access from the local CLI or tooling.
 aws = ["boto3>=1.34"]
 # Infrastructure-as-code (kept here so `uv sync --extra infra` provisions the CDK app).
@@ -45,6 +47,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/printforge"]
+# Ship the packaged reference docs (injected into prompts; needed in the Lambda image).
+artifacts = ["src/printforge/resources/*.md"]
 
 [tool.ruff]
 line-length = 100

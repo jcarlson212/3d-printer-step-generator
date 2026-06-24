@@ -8,12 +8,19 @@ address gets a light sanity check (required fields present, plausible postal cod
 from __future__ import annotations
 
 import uuid
+from enum import StrEnum
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 def _new_order_id() -> str:
     return f"GC-{uuid.uuid4().hex[:10].upper()}"
+
+
+class ShippingMethod(StrEnum):
+    STANDARD = "standard"
+    EXPEDITED = "expedited"
+    OVERNIGHT = "overnight"
 
 
 class ShippingAddress(BaseModel):
@@ -66,6 +73,18 @@ class OrderInfo(BaseModel):
     deadline: str | None = Field(
         default=None, description="Optional requested-by date (free text or ISO date)."
     )
+    shipping_method: ShippingMethod = Field(default=ShippingMethod.STANDARD)
+    filament_shade: str | None = Field(
+        default=None,
+        description="Specific filament shade beyond piece color, e.g. 'marble white', "
+        "'matte black' (informs the theme/look).",
+    )
+    engraving_message: str | None = Field(
+        default=None, description="Optional personalization to engrave on the base / gift note."
+    )
+    marketing_opt_in: bool = Field(
+        default=False, description="Customer consents to future marketing emails."
+    )
     notes: str | None = None
 
     @field_validator("stripe_payment_link")
@@ -89,10 +108,16 @@ class OrderInfo(BaseModel):
         ]
         if self.phone:
             lines.append(f"Phone:     {self.phone}")
+        lines.append(f"Shipping:  {self.shipping_method.value}")
         if self.deadline:
             lines.append(f"Deadline:  {self.deadline}")
+        if self.filament_shade:
+            lines.append(f"Shade:     {self.filament_shade}")
+        if self.engraving_message:
+            lines.append(f"Engraving: {self.engraving_message}")
         if self.stripe_payment_link:
             lines.append(f"Payment:   {self.stripe_payment_link}")
+        lines.append(f"Marketing: {'opted in' if self.marketing_opt_in else 'no'}")
         if self.notes:
             lines.append(f"Notes:     {self.notes}")
         return lines

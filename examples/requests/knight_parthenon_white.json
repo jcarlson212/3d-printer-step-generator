@@ -16,6 +16,10 @@
     "quantity": 1,
     "stripe_payment_link": "https://buy.stripe.com/test_example",
     "deadline": "2026-07-15",
+    "shipping_method": "expedited",
+    "filament_shade": "weathered marble white",
+    "engraving_message": "\u03a3\u0395\u039b\u0397\u039d\u0397",
+    "marketing_opt_in": true,
     "notes": "Higher-end / framed presentation piece."
   },
   "colors": [
@@ -36,6 +40,10 @@
     "bambu_pla_basic"
   ],
   "gotcha_overrides": {},
+  "use_vision": true,
+  "reference_stl_dir": "/Users/jasoncarlson/Documents/Business/GarryChess/ThreeDChessExamples/knight",
+  "reference_images": [],
+  "max_reference_images": 4,
   "provider": {
     "provider": "anthropic",
     "model": "claude-opus-4-8",

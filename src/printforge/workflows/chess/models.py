@@ -52,6 +52,16 @@ class ChessWorkflowRequest(BaseModel):
     # Per-piece gotcha overrides: {piece_slug: [gotcha, ...]} replaces code defaults.
     gotcha_overrides: dict[str, list[str]] = Field(default_factory=dict)
 
+    # Vision: feed rendered views of reference STLs/images to a vision-capable model.
+    use_vision: bool = False
+    reference_stl_dir: str | None = Field(
+        default=None, description="Directory of reference .stl files to render and show the model."
+    )
+    reference_images: list[str] = Field(
+        default_factory=list, description="Paths to reference image files (png/jpg)."
+    )
+    max_reference_images: int = Field(default=4, ge=1, le=12)
+
     # Execution + delivery.
     provider: ProviderConfig = Field(default_factory=ProviderConfig)
     delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)

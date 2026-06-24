@@ -87,7 +87,7 @@ def build_model(cfg: ProviderConfig) -> Model:
         from pydantic_ai.models.bedrock import BedrockConverseModel
         from pydantic_ai.providers.bedrock import BedrockProvider
 
-        region = cfg.aws_region or os.environ.get("AWS_REGION", "us-east-1")
+        region = cfg.aws_region or os.environ.get("AWS_REGION", "us-east-2")
         provider = BedrockProvider(region_name=region)
         return BedrockConverseModel(cfg.model, provider=provider)  # type: ignore[arg-type]
 

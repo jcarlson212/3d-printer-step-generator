@@ -22,7 +22,7 @@ from rich.panel import Panel
 
 from printforge.core.delivery import DEFAULT_RECIPIENT, DeliveryConfig
 from printforge.core.executor import cad_available
-from printforge.core.order import OrderInfo, ShippingAddress
+from printforge.core.order import OrderInfo, ShippingAddress, ShippingMethod
 from printforge.core.providers import Provider, ProviderConfig
 from printforge.core.registry import get_machine, resolve_machine_material
 from printforge.workflows.chess.engine import run_chess_workflow
@@ -160,7 +160,7 @@ def _build_request_interactive() -> ChessWorkflowRequest:
         base_url = _optional_text("LM Studio base URL:", "http://localhost:1234/v1")
         api_key = _optional_text("LM Studio model name (blank = default):")
     elif provider == "bedrock":
-        aws_region = _optional_text("AWS region:", "us-east-1")
+        aws_region = _optional_text("AWS region:", "us-east-2")
     provider_cfg = ProviderConfig(
         provider=Provider(provider),
         api_key=api_key if provider != "lmstudio" else None,
@@ -182,6 +182,14 @@ def _build_request_interactive() -> ChessWorkflowRequest:
     country = _required_text("Country:", "US")
     phone = _optional_text("Phone (optional):")
     quantity = _int("Quantity:", default=1)
+    shipping_method = _select(
+        "Shipping method?", [m.value for m in ShippingMethod], default="standard"
+    )
+    filament_shade = _optional_text("Filament shade (optional, e.g. 'marble white'):")
+    engraving = _optional_text("Engraving / gift message (optional):")
+    marketing = questionary.confirm(
+        "Opt in to marketing emails?", default=False
+    ).ask() or False
     stripe = _optional_text("Stripe payment link (optional):")
     deadline = _optional_text("Requested-by / deadline (optional):")
     notes = _optional_text("Order notes (optional):")
@@ -192,9 +200,21 @@ def _build_request_interactive() -> ChessWorkflowRequest:
             line1=line1, line2=line2, city=city,
             state_province=state, postal_code=postal, country=country,
         ),
-        phone=phone, quantity=quantity, stripe_payment_link=stripe,
-        deadline=deadline, notes=notes,
+        phone=phone, quantity=quantity,
+        shipping_method=ShippingMethod(shipping_method),
+        filament_shade=filament_shade, engraving_message=engraving,
+        marketing_opt_in=marketing,
+        stripe_payment_link=stripe, deadline=deadline, notes=notes,
     )
+
+    # --- vision (optional reference STLs) ---
+    use_vision = False
+    ref_stl_dir = None
+    if questionary.confirm(
+        "Show the model reference STL images (vision)?", default=False
+    ).ask():
+        ref_stl_dir = _optional_text("Directory of reference .stl files:")
+        use_vision = bool(ref_stl_dir)
 
     # --- delivery ---
     recipient = _optional_text("Deliver STEP to email:", DEFAULT_RECIPIENT) or DEFAULT_RECIPIENT
@@ -221,6 +241,8 @@ def _build_request_interactive() -> ChessWorkflowRequest:
         provider=provider_cfg,
         delivery=DeliveryConfig(recipient=recipient),
         export_step=export,
+        use_vision=use_vision,
+        reference_stl_dir=ref_stl_dir,
     )
 
 

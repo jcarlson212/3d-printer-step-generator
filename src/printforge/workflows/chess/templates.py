@@ -24,6 +24,9 @@ def _std(piece: PieceType) -> TargetDimensions:
 class ChessPieceTemplate(BasePieceTemplate):
     """Common behavior shared by every chess piece template."""
 
+    # Reference docs injected into every chess piece's system prompt.
+    resource_keys: list[str] = ["build123d", "fdm_pla", "step_stl"]
+
     def system_prompt(self) -> str:
         return super().system_prompt() + (
             "\n\nChess-set conventions:\n"
@@ -56,6 +59,7 @@ class PawnTemplate(ChessPieceTemplate):
 class KnightTemplate(ChessPieceTemplate):
     slug: str = "knight"
     display_name: str = "Knight"
+    resource_keys: list[str] = ["build123d", "fdm_pla", "step_stl", "knight_guide"]
     design_brief: str = (
         "A Staunton knight: a stylised horse's head and arched neck rising from a "
         "collared circular base. The standard tournament knight descends from a horse "

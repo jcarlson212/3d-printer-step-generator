@@ -119,7 +119,7 @@ def deliver(
 def _send_ses(cfg: DeliveryConfig, msg: EmailMessage) -> DeliveryResult:
     import boto3  # imported lazily so non-AWS local runs don't need boto3
 
-    region = cfg.aws_region or os.environ.get("AWS_REGION", "us-east-1")
+    region = cfg.aws_region or os.environ.get("AWS_REGION", "us-east-2")
     client = boto3.client("ses", region_name=region)
     client.send_raw_email(
         Source=msg["From"],

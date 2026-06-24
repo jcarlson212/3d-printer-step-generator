@@ -55,10 +55,23 @@ class BasePieceTemplate(BaseModel):
     )
     default_gotchas: list[str] = Field(default_factory=list)
     default_target: TargetDimensions
+    resource_keys: list[str] = Field(
+        default_factory=list,
+        description="Packaged reference docs to inject into the system prompt "
+        "(see printforge.resources).",
+    )
 
     # ----------------------------------------------------------------- hooks --
     def cad_library(self) -> str:
         return "build123d"
+
+    def reference_block(self) -> str:
+        """Distilled reference docs for this piece, or '' if none configured."""
+        if not self.resource_keys:
+            return ""
+        from printforge.resources import knowledge_pack
+
+        return knowledge_pack(self.resource_keys)
 
     def effective_gotchas(self, override: list[str] | None) -> list[str]:
         """Piece-level gotchas: request override wins, else code defaults."""
@@ -66,7 +79,7 @@ class BasePieceTemplate(BaseModel):
 
     # --------------------------------------------------------------- prompts --
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a senior parametric-CAD engineer who writes clean, valid "
             f"{self.cad_library()} (Python) code for 3D printing.\n\n"
             "Hard rules:\n"
@@ -82,6 +95,10 @@ class BasePieceTemplate(BaseModel):
             "5. Output is consumed by an automated executor. When asked for code, return "
             "ONLY the requested structured fields -- no markdown fences inside code.\n"
         )
+        reference = self.reference_block()
+        if reference:
+            return base + "\n\n## Reference material (authoritative; rely on it)\n" + reference
+        return base
 
     def user_prompt(
         self,
@@ -93,6 +110,7 @@ class BasePieceTemplate(BaseModel):
         target: TargetDimensions,
         gotchas: list[str],
         prior: list[PriorPieceContext] | None = None,
+        personalization: list[str] | None = None,
     ) -> str:
         lines: list[str] = []
         lines.append(f"# Task: design a printable **{self.display_name}** ({color}).")
@@ -129,6 +147,11 @@ class BasePieceTemplate(BaseModel):
         lines.append(f"## {self.display_name}-specific printing gotchas")
         for g in gotchas:
             lines.append(f"- {g}")
+        if personalization:
+            lines.append("")
+            lines.append("## Customer personalization")
+            for d in personalization:
+                lines.append(f"- {d}")
         if prior:
             lines.append("")
             lines.append("## Earlier pieces in this set (for consistency)")
