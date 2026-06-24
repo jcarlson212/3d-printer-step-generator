@@ -7,14 +7,15 @@
 FROM public.ecr.aws/lambda/python:3.11
 
 # OpenCascade (OCP) runtime shared libraries needed by build123d.
-RUN dnf install -y \
+# The lambda/python:3.11 base image is Amazon Linux 2 (yum).
+RUN yum install -y \
         mesa-libGL \
         libXext \
         libSM \
         libICE \
         fontconfig \
         libgomp \
-    && dnf clean all
+    && yum clean all
 
 # Install the package with the cad (build123d) + aws (boto3) extras.
 COPY pyproject.toml README.md ${LAMBDA_TASK_ROOT}/
