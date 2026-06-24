@@ -19,6 +19,9 @@ RESOURCES: dict[str, str] = {
     "step_stl": "step_stl_primer.md",
     "fdm_pla": "fdm_pla_constraints.md",
     "knight_guide": "staunton_knight_guide.md",
+    # The in-depth CAD craft reference: how to sculpt beautiful, intricate chess
+    # pieces in build123d. Injected into every chess piece prompt.
+    "cad_masterclass": "cad_chess_masterclass.md",
 }
 
 
