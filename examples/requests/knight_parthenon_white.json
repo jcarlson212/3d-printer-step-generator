@@ -1,0 +1,59 @@
+{
+  "order": {
+    "order_id": "GC-EXAMPLE001",
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "email": "ada@example.com",
+    "shipping_address": {
+      "line1": "12 Analytical Way",
+      "line2": null,
+      "city": "London",
+      "state_province": null,
+      "postal_code": "EC1A 1BB",
+      "country": "UK"
+    },
+    "phone": "+44 20 7946 0958",
+    "quantity": 1,
+    "stripe_payment_link": "https://buy.stripe.com/test_example",
+    "deadline": "2026-07-15",
+    "notes": "Higher-end / framed presentation piece."
+  },
+  "colors": [
+    "white"
+  ],
+  "pieces": [
+    "knight"
+  ],
+  "theme": "The Staunton knight's secret origin. The standard tournament knight is modeled on a horse from the Parthenon frieze -- one of Selene's horses from the Elgin Marbles. Almost nobody who plays knows their chess piece is a 2,500-year-old Greek sculpture. Lean into that: weathered marble texture, the broken classical profile, the feeling of 'you've been holding a fragment of the Parthenon this whole time.' Aim it at a higher-end print or a framed presentation piece -- it sells on the story. Keep the sculptural, noble horse-head silhouette; suggest eroded stone and a chipped/fractured edge rather than smooth modern plastic.",
+  "dimensions": {
+    "height_mm": 65.0,
+    "width_mm": null,
+    "depth_mm": null
+  },
+  "machine_key": "bambu_a1_mini",
+  "material_key": "bambu_pla_basic",
+  "preferred_materials": [
+    "bambu_pla_basic"
+  ],
+  "gotcha_overrides": {},
+  "provider": {
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "api_key": null,
+    "base_url": null,
+    "aws_region": null
+  },
+  "delivery": {
+    "recipient": "cad@garrychess.ai",
+    "sender": null,
+    "method": "auto",
+    "smtp_host": null,
+    "smtp_port": 587,
+    "smtp_username": null,
+    "smtp_password": null,
+    "smtp_use_tls": true,
+    "aws_region": null,
+    "save_dir": "out/deliveries"
+  },
+  "export_step": true
+}
