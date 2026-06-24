@@ -175,17 +175,20 @@ solid), array it around a collar with `PolarLocations`, fuse. Egg-and-dart sits 
 ovolo; dentils are a ring of small rectangular blocks under a cornice.
 
 ### Weathered / eroded marble (the Parthenon-fragment look) [verified]
-Two complementary boolean techniques:
+**Restraint is everything.** Real weathering is one strong broken face plus a FEW
+shallow chips concentrated near edges and high points, with large SMOOTH marble
+passages in between. Do NOT pepper the whole surface with uniform pits — that reads as
+noise, not antiquity. Aim for ~6–12 shallow pits, not dozens.
 ```python
 import math, random
-random.seed(7)                                          # deterministic erosion
+random.seed(7)
 result = Pos(0, 0, 20) * Cylinder(radius=10, height=40)
-# (a) one clean broken/fractured face — the "fragment" read
+# (a) one clean broken/fractured face — the dominant "fragment" read
 result -= Pos(9, 0, 34) * Rot(0, 35, 0) * Box(10, 26, 10)
-# (b) scatter shallow surface pits
-for _ in range(30):
-    a = random.uniform(0, 6.283); z = random.uniform(6, 36); rr = random.uniform(7.5, 10.5)
-    result -= Pos(rr*math.cos(a), rr*math.sin(a), z) * Sphere(random.uniform(0.6, 1.3))
+# (b) a FEW shallow chips, weighted to the upper/edge region (not all over)
+for _ in range(8):
+    a = random.uniform(0, 6.283); z = random.uniform(24, 38); rr = random.uniform(8.5, 10.5)
+    result -= Pos(rr*math.cos(a), rr*math.sin(a), z) * Sphere(random.uniform(0.5, 1.0))
 ```
 Erosion reads as antiquity; a clean *broken* face (one big planar cut, lightly
 filleted) sells "fragment of the Parthenon" better than uniform roughness. Keep
@@ -418,7 +421,10 @@ with BuildPart() as neck:                                          # arched, lea
             Ellipse(rx, ry)
     loft()
 result += neck.part
-result += Pos(11, 0, 44) * Rot(0, 55, 0) * Box(20, 13, 11)        # muzzle (round the nose w/ fillet)
+# MUZZLE — a tapered, ROUNDED form, never a raw faceted box. A leaning cone + a
+# sphere nose reads as a horse muzzle; a Box reads as a crystal. Round it.
+result += Pos(8, 0, 45) * Rot(0, 70, 0) * Cone(bottom_radius=7, top_radius=4.5, height=14)
+result += Pos(15, 0, 41) * Sphere(4.5)                           # rounded nose
 result += Pos(-4, 5, 52) * Rot(20, 0, 0) * Cone(bottom_radius=2.2, top_radius=0.5, height=7)  # ear
 result += Pos(-4, -5, 52) * Rot(-20, 0, 0) * Cone(bottom_radius=2.2, top_radius=0.5, height=7) # ear
 try:
@@ -426,12 +432,13 @@ try:
 except Exception:
     pass
 ```
-Then elevate it: more loft sections for a true equine curve; `sweep` a mane down the
-crest and cut groove-locks; shallow sphere cuts for nostrils and eye sockets; a brow
-ridge; a global light fillet pass so seams read as carved stone; and §3 erosion + one
-broken classical face for the Parthenon look. Reinforce the neck (load-bearing, #1
-ship-failure point); keep the muzzle's forward overhang within the material's limit or
-short enough to self-support.
+Then elevate it: more loft sections for a true equine curve; build the muzzle and jaw
+as smooth tapered/lofted/swept masses (round everything — a horse has no flat facets);
+`sweep` a mane down the crest and cut groove-locks; shallow sphere cuts for nostrils
+and eye sockets; a brow ridge; a global light fillet pass so seams read as carved
+stone; then RESTRAINED §3 erosion + one broken classical face for the Parthenon look.
+Reinforce the neck (load-bearing, #1 ship-failure point); keep the muzzle's forward
+overhang within the material's limit or short enough to self-support.
 
 ---
 
