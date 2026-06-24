@@ -28,6 +28,7 @@ htmlcov/
 # AWS CDK
 infra/cdk.out/
 infra/.cdk.staging/
+infra/cdk_outputs.json
 cdk.out/
 
 # Generated artifacts (STEP/CAD output from runs)

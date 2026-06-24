@@ -42,6 +42,8 @@ src/printforge/
     agent.py        # pydantic-ai agent → {cad_code, detailed_explanation}
     executor.py     # run build123d code → STEP (isolated subprocess)
     delivery.py     # email the result (SES / SMTP / save-to-disk)
+    vision.py       # render reference STLs → PNGs for vision models ('vision' extra)
+  resources/        # distilled reference docs injected into prompts + SOURCES.md
   workflows/chess/
     pieces.py       # Color / PieceType enums, standard Staunton sizing
     templates.py    # ChessPieceTemplate + per-piece templates (knight enabled)
@@ -120,24 +122,39 @@ server configured, the email is written to `out/deliveries/` instead of sent.
 
 ## AWS deployment (CDK)
 
-API Gateway → container Lambda (Bedrock + build123d) → SES email.
+API Gateway → container Lambda (Bedrock + build123d) → SES email. Deploys to
+**us-east-2**; every resource is named/tagged with app id **`cadgen`** (stack
+`CadgenChessStepStack`) so it's easy to spot in the console/billing.
 
 ```bash
 uv sync --extra infra
+# credentials in .env (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)
+set -a; . ./.env; set +a; export AWS_REGION=us-east-2
 cd infra
 cdk bootstrap      # first time per account/region
-cdk deploy
+cdk deploy         # builds the linux/amd64 image (OCP is x86_64-only) and pushes to ECR
 ```
 
-POST a `ChessWorkflowRequest` JSON to the `/generate` endpoint (API key required;
-see stack outputs `ApiUrl` / `ApiKeyId`). The Lambda forces the Bedrock provider
-and emails the STEP via SES.
+> CDK runs the app via `python3 app.py`; run with the venv's Python on PATH
+> (`export PATH=../.venv/bin:$PATH`).
 
-**Not deployed yet — needs credentials.** Two prerequisites:
-1. AWS credentials/account to deploy into.
-2. **SES is not set up.** Email delivery to `cad@garrychess.ai` requires a
-   verified SES identity (and moving out of the SES sandbox to email arbitrary
-   customers). Until then, local runs fall back to save-to-disk.
+POST a `ChessWorkflowRequest` JSON to the `/generate` endpoint (API key required;
+see stack outputs `ApiUrl` / `ApiKeyId`, also written to `infra/cdk_outputs.json`).
+The Lambda forces the Bedrock provider and emails the STEP via SES.
+
+Get the API key value:
+```bash
+aws apigateway get-api-key --api-key <ApiKeyId> --include-value --region us-east-2 --query value --output text
+```
+
+**Two operational prerequisites before the cloud path fully works:**
+1. **Bedrock model access** — enable the configured model
+   (`us.anthropic.claude-opus-4-8-v1:0`) for the account in us-east-2 (Bedrock
+   console → Model access).
+2. **SES** — email to `cad@garrychess.ai` needs a verified SES identity (and SES
+   sandbox exit to email arbitrary customers). Delivery failures are non-fatal:
+   generation still succeeds and the STEP is produced; the result notes the
+   delivery error. Local runs fall back to save-to-disk.
 
 > Note: API Gateway has a hard 29s timeout; a full LLM+CAD generation can exceed
 > it. The synchronous route is fine for testing; production should move to async
@@ -146,10 +163,23 @@ and emails the STEP via SES.
 ## Order fields
 
 Required: `first_name`, `last_name`, `email` (validated), `shipping_address`
-(basic check). Optional: `phone`, `quantity`, `stripe_payment_link`, `deadline`,
-`notes`. An `order_id` is auto-generated. Piece `dimensions` default to standard
-Staunton sizes; `preferred_materials` defaults to `["bambu_pla_basic"]` and is
-validated against what the machine supports.
+(basic check). Optional: `phone`, `quantity`, `shipping_method`
+(standard/expedited/overnight), `filament_shade`, `engraving_message`,
+`marketing_opt_in`, `stripe_payment_link`, `deadline`, `notes`. An `order_id` is
+auto-generated. `filament_shade` and `engraving_message` are threaded into the
+prompt as customer personalization (the engraving is modeled onto the base).
+Piece `dimensions` default to standard Staunton sizes; `preferred_materials`
+defaults to `["bambu_pla_basic"]` and is validated against the machine.
+
+## Reference docs & vision
+
+- **Reference docs** — `src/printforge/resources/` holds distilled cheat-sheets
+  (build123d API, STEP/STL primer, FDM/PLA limits, Staunton knight guide) that are
+  injected into the system prompt. `SOURCES.md` lists upstream links;
+  `scripts/fetch_resources.py` optionally pulls full copies locally.
+- **Vision** — set `use_vision: true` + `reference_stl_dir` (or `reference_images`)
+  to render reference STLs to images and feed them to a vision-capable model for
+  silhouette/proportion guidance (needs the `vision` extra).
 
 ## Tests
 
