@@ -207,7 +207,7 @@ def build_piece(
             issues = "PACKAGING/DURABILITY ISSUES FOUND (fix these, keep the design):\n- " + (
                 "\n- ".join(verdict.issues)
             )
-            progress(f"safety check {s + 1}: not ship-safe -> revising ({len(verdict.issues)} issues)")
+            progress(f"safety {s + 1}: not ship-safe -> revising ({len(verdict.issues)} issues)")
             cand = revise_piece(
                 template,
                 provider_cfg=provider_cfg,
