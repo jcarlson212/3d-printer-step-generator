@@ -22,7 +22,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, EmailStr, Field
 
+# Where finished files are sent, and the (verified) address they're sent from.
 DEFAULT_RECIPIENT = "cad@garrychess.ai"
+DEFAULT_SENDER = "cad@garrychess.ai"
 
 
 class DeliveryMethod(StrEnum):
@@ -59,7 +61,7 @@ class DeliveryConfig(BaseModel):
     save_dir: str = "out/deliveries"
 
     def resolved_sender(self) -> str:
-        return self.sender or os.environ.get("DELIVERY_SENDER") or str(self.recipient)
+        return self.sender or os.environ.get("DELIVERY_SENDER") or DEFAULT_SENDER
 
 
 class DeliveryResult(BaseModel):
