@@ -416,32 +416,46 @@ reads as junkyard plumbing, not a horse. Build the head as ONE coherent mass tha
 **arches forward and dips DOWN** into a tapered muzzle (muzzle at the front-bottom,
 poll up-back), fused into the neck. The recipe below produces a real equine head:
 ```python
-base = Pos(0,0,4)*Cylinder(radius=15,height=8) + Pos(0,0,9.5)*Cylinder(radius=11,height=3)
-# neck: vertical ellipses leaning forward (center x grows up the neck)
+# CURVED ogee base (revolve a profile) -- real knights flow, they aren't straight cylinders
+with BuildPart() as base:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((0,0),(16,0),(16,3))
+            Spline((16,3),(11,7),(12.5,11),tangents=((-0.6,1),(0.2,1)))   # cove flare
+            Line((12.5,11),(0,11)); Line((0,11),(0,0))
+        make_face()
+    revolve(axis=Axis.Z)
+result = base.part
+# neck: ellipses with a real forward arch
 with BuildPart() as neck:
-    for z,cx,(a,b) in [(11,0,(9,8)),(22,1.5,(8.5,8)),(32,3,(8,8.5)),(40,3,(8.5,9))]:
+    for z,cx,(a,b) in [(11,0,(9,8)),(20,1,(8.6,8)),(29,3,(8,8.2)),(37,4.5,(8,8.6)),(41,4,(8.4,9))]:
         with BuildSketch(Plane.XY.offset(z)):
             with Locations((cx,0)): Ellipse(a,b)
     loft()
 # HEAD: loft sections marching forward (+X) and dipping down in Z -> a real muzzle.
 with BuildPart() as head:
-    for x,zc,(a,b) in [(-4,40,(11,9)),(4,42,(10,8.5)),(11,40,(8,7)),(18,36,(6,5.5)),(24,33,(4.5,4))]:
+    for x,zc,(a,b) in [(-4,41,(11,9)),(4,43,(10.5,8.6)),(11,41,(8.5,7)),(18,37,(6,5.5)),(24,33,(4.5,4))]:
         with BuildSketch(Plane.YZ.offset(x)):                  # YZ: local-x=Y(width b), local-y=Z(height a)
             with Locations((0,zc)): Ellipse(b,a)
     loft()
-result = base + neck.part + head.part
-result += Pos(10,0,33)*Sphere(5.5)                             # jaw bulge, fused
-# sculpted muzzle: mouth-line groove + recessed nostrils (flush cuts, never stuck-on balls)
-result -= Pos(20,0,32)*Rot(0,8,0)*Box(12,9,0.9)               # mouth line
-result -= Pos(23,2.2,35)*Sphere(0.9); result -= Pos(23,-2.2,35)*Sphere(0.9)
-# leaf ears: FLATTENED curved cones fused into the poll with real overlap (not bare cones)
-def ear(sy):
-    e = scale(Cone(bottom_radius=2.8,top_radius=0.4,height=9), by=(0.5,1.0,1.0))
-    return Pos(-3,sy*4,45)*Rot(sy*-18,-14,0)*e
+result += neck.part + head.part + Pos(11,0,33)*Sphere(5.6)     # jaw bulge, fused
+# CLEAR FACE so it reads as a living animal, NOT a droid:
+result -= Pos(20,0,31.5)*Rot(0,10,0)*Box(13,9,1.1)             # mouth-line groove
+result -= Pos(23.5,2.2,35)*Sphere(1.0); result -= Pos(23.5,-2.2,35)*Sphere(1.0)  # nostrils
+for sy in (1,-1):                                              # eyes: socket + eyeball + brow
+    result -= Pos(4,sy*7.0,44)*scale(Sphere(2.4), by=(1.3,0.5,1.0))
+    result += Pos(5,sy*7.2,44)*Sphere(1.3)
+    result += Pos(2,sy*6.5,47)*Rot(0,0,sy*-20)*scale(Cone(bottom_radius=2,top_radius=0.3,height=5),by=(0.4,1,1))
+def ear(sy):                                                   # flattened leaf ears, fused
+    return Pos(-3,sy*4,46)*Rot(sy*-18,-14,0)*scale(Cone(bottom_radius=2.8,top_radius=0.4,height=9),by=(0.5,1,1))
 result += ear(1) + ear(-1)
-try: result = fillet(result.edges().group_by(Axis.Z)[0],radius=1.2)
+try: result = fillet(result.edges().group_by(Axis.Z)[0],radius=1.0)
 except Exception: pass
 ```
+**Vary the head per theme** — don't ship the identical head on every piece. Shift the
+proportions, the eye size/shape, the muzzle length, the ear/horn style, and the
+surface to suit the theme (a dragon snout is longer with a heavy brow; a minimalist
+head is smoother with smaller features; a cute theme has big round eyes).
 Elevate from there: more head sections for a finer equine curve; a swept mane of locks
 down the crest (a ribbon + groove cuts, NEVER a cluster of spheres); a brow ridge and
 recessed eye sockets; a global light fillet so seams read as carved. Then apply the
@@ -482,7 +496,23 @@ thing." Apply them to EVERY piece.
 
 **Structure (also ship-safety):**
 - Every added mass must overlap and truly fuse — no floating, no kissing-at-a-point.
-  A detached ear is both ugly and a guaranteed print/ship failure.
+  A detached ear is both ugly and a guaranteed print/ship failure. Props (sword,
+  antenna, spire) must be THICK enough not to snap, or be a separate detachable part —
+  a wire-thin sword reads bad and breaks.
+
+**Themes reinterpret the FORM, not just the surface (the most important one):**
+- A theme is not a texture you spray on a fixed knight. Let it distort the whole
+  silhouette — the base shape, the body proportions, the head — by an amount
+  proportional to how different the theme is, and add theme props.
+- Mild themes (marble, art-deco): keep the horse-head knight, vary base + surface +
+  ornament. Strong character themes: REINTERPRET the body. Example — a "Kirby knight"
+  is not a horse head with pink texture; it's Kirby's round body + big round eyes +
+  little feet, given a knight read with a swept mane down the back, ear-tufts, and a
+  (thick) sword & shield. The piece should still read as a knight, but its form is
+  reimagined around the character.
+- Always pull reference images of BOTH the theme subject and real Staunton knights,
+  and design the simplification from them — curved flowing base/neck, clear animal
+  face (eyes/brow/mouth), theme-specific body and props.
 
 ---
 
