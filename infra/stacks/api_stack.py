@@ -23,6 +23,9 @@ from aws_cdk import (
     aws_apigateway as apigw,
 )
 from aws_cdk import (
+    aws_ecr_assets as ecr_assets,
+)
+from aws_cdk import (
     aws_iam as iam,
 )
 from aws_cdk import (
@@ -55,7 +58,11 @@ class ChessStepApiStack(Stack):
             code=_lambda.DockerImageCode.from_image_asset(
                 directory=str(REPO_ROOT),
                 file="infra/lambda/Dockerfile",
+                # OCP (build123d) only ships x86_64 Linux wheels; build amd64 even on
+                # an Apple Silicon host (matches the default Lambda architecture).
+                platform=ecr_assets.Platform.LINUX_AMD64,
             ),
+            architecture=_lambda.Architecture.X86_64,
             memory_size=3008,
             timeout=Duration.minutes(10),  # Lambda itself; API GW still caps at 29s
             environment={
