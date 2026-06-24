@@ -1,9 +1,37 @@
 # CAD masterclass: sculpting beautiful, intricate chess pieces in build123d
 
-This is the core craft reference. Read it as the playbook for *how* to turn a brief
+This is the core craft reference and the **mechanics manual** for emitting valid
+build123d that exports to STEP. Read it as the playbook for *how* to turn a brief
 into a sculptural, print-ready solid — not just a blocky approximation. The goal is
 work that looks turned on a lathe and hand-carved, with classical detail, not a
-stack of primitives. Aim higher than the reference STLs: those are the floor.
+stack of primitives.
+
+Every code block below has been **executed and verified to produce a valid STEP**
+on build123d 0.11 — copy these patterns and trust them. Any reference STLs you are
+shown are loose, abstract inspiration for what a knight (or any piece) *can* look
+like; they are not targets to match. Your design should be *better* than them and
+may take a different form. Their main value is grounding the mechanics of producing
+clean STEP code.
+
+## 0. Verified API truths (the things models get wrong)
+
+- **`PolarLocations(radius, count) * obj` returns a LIST of placed copies**, not a
+  single object. You can `body + cutters` and `body - cutters` (both work), but you
+  CANNOT `Pos(...) * cutters` (a list can't be left-multiplied by a transform). To
+  place an arrayed feature at a height, translate the object FIRST, then array:
+  `PolarLocations(radius=10, count=28) * (Pos(0, 0, 12) * Sphere(1.2))`. Same for
+  `GridLocations`.
+- **Builder vs algebra — don't interleave them in one expression.** Inside
+  `with BuildPart() as p:` use operations (`revolve()`, `loft()`, `sweep()`,
+  `extrude()`, `add(...)`); get the solid out with `p.part`. Outside a builder, use
+  the algebra API (`a + b`, `a - b`, `Pos`, `Rot`). Mixing the two in a single line
+  is the #1 cause of errors.
+- **`Polyline`/`Line`/`Spline`/`RadiusArc` are BuildLine-only.** Use them only inside
+  `with BuildLine():`, then `make_face()` inside the enclosing `with BuildSketch():`.
+- **Fillet edge selection can raise "no suitable edges"** — always wrap a fillet whose
+  edge set you're not 100% sure of in `try/except Exception: pass`.
+- `Pos(x, y, z) * shape` translates; `Rot(rx, ry, rz) * shape` rotates (degrees).
+  Primitives (`Box`, `Cylinder`, `Sphere`, `Cone`) are centered at the origin.
 
 ---
 
@@ -105,50 +133,59 @@ amateur model and the #1 source of chipping in PLA.
 
 Detail is mostly *removed*, via polar/grid arrays of cutting tools.
 
-### Fluting (Greek column flutes down a body) — `PolarLocations`
+### Fluting (Greek column flutes down a body) — `PolarLocations` [verified]
+Make the cutter tall enough to span the fluted region, then array and subtract.
+Don't try to `Pos` the arrayed list — translate is baked into the cutter's height.
 ```python
-flute = Cylinder(radius=1.4, height=22)                 # the cutter
-flutes = PolarLocations(radius=8.5, count=20) * Pos(0, 0, 14) * flute
-result = body - flutes
+body = Pos(0, 0, 22) * Cylinder(radius=10, height=44)
+flute = Cylinder(radius=1.6, height=46)                 # spans the full body
+result = body - PolarLocations(radius=10, count=20) * flute
 ```
-20–24 shallow half-round flutes turn a plain stem into a Doric/Ionic column — the
-backbone of a "Greek architecture" theme. Reeding is the same idea in reverse (add
-half-rounds instead of cutting).
+**Doric** ≈ 20 broad flutes meeting at a sharp ridge (arris); **Ionic** ≈ 24 deeper
+flutes separated by a flat fillet. Reeding is the reverse — `+` half-rounds instead
+of cutting. Both are the backbone of a "Greek architecture" theme.
 
-### Crenellations (rook battlements) — polar array of box cuts
+### Crenellations (rook battlements) — polar array of box cuts [verified]
+`radius=0` with `rotate=True` puts a copy at center rotated to each angle; a long
+box then cuts a notch in each direction.
 ```python
-merlon_gap = Box(6, 14, 9)
-gaps = PolarLocations(radius=0, count=8) * Pos(0, 13, top_z) * merlon_gap
-result = tower - gaps                                   # leaves 8 merlons
-```
-
-### Beading / astragal rings (necklaces of tiny spheres or a torus)
-```python
-beads = PolarLocations(radius=11, count=28) * Sphere(1.1)
-result = body + Pos(0, 0, collar_z) * beads
+tower = Pos(0, 0, 22) * Cylinder(radius=11, height=44)
+gap = Box(7, 30, 9)
+result = tower - PolarLocations(radius=0, count=8) * (Pos(0, 0, 42) * gap)
 ```
 
-### Engraving & inscriptions — `Text` cut shallowly into a face
+### Beading / astragal (bead-and-reel ring of spheres) [verified]
+Position the sphere FIRST, then array (a `PolarLocations * shape` result is a list
+and cannot be `Pos`-multiplied).
 ```python
-with BuildSketch(Plane.XY.offset(base_top)) as t:
-    Text("ΣΕΛΗΝΗ", font_size=4)
-result -= extrude(t.sketch, amount=-0.6)               # recessed, ≥ min feature
+body = Pos(0, 0, 20) * Cylinder(radius=10, height=40)
+result = body + PolarLocations(radius=10, count=28) * (Pos(0, 0, 12) * Sphere(1.2))
 ```
 
-### Egg-and-dart, dentils, acanthus — repeated motif via arrays of small lofted/revolved units fused around a collar. Build ONE unit, array it with `PolarLocations`, fuse.
-
-### Weathered / eroded marble (the Parthenon-fragment look)
-Two complementary techniques, both boolean:
+### Engraving & inscriptions — `Text` cut shallowly into a face [verified]
 ```python
-import random
-random.seed(7)                                         # deterministic erosion
-# (a) chip the silhouette: subtract a few wedge/box cuts at the edges & a broken corner
-result -= Pos(11, 0, 30) * Rot(0, 35, 0) * Box(8, 20, 8)   # a fractured break face
-# (b) pit the surface: scatter shallow spherical divots
-for _ in range(40):
-    a = random.uniform(0, 6.28); z = random.uniform(6, 50); r = random.uniform(7, 11)
-    result -= Pos(r*math.cos(a), r*math.sin(a), z) * Sphere(random.uniform(0.6, 1.4))
-result = fillet(result.edges().filter_by(GeomType.LINE).group_by(SortBy.LENGTH)[-1][:6], 0.5)
+base = Pos(0, 0, 4) * Cylinder(radius=16, height=8)
+with BuildSketch(Plane.XY.offset(8)) as t:
+    Text("ΣΕΛΗΝΗ", font_size=5)
+result = base - extrude(t.sketch, amount=-0.6)          # recessed, ≥ min feature
+```
+
+### Egg-and-dart, dentils, acanthus — build ONE motif unit (a small lofted/revolved
+solid), array it around a collar with `PolarLocations`, fuse. Egg-and-dart sits on an
+ovolo; dentils are a ring of small rectangular blocks under a cornice.
+
+### Weathered / eroded marble (the Parthenon-fragment look) [verified]
+Two complementary boolean techniques:
+```python
+import math, random
+random.seed(7)                                          # deterministic erosion
+result = Pos(0, 0, 20) * Cylinder(radius=10, height=40)
+# (a) one clean broken/fractured face — the "fragment" read
+result -= Pos(9, 0, 34) * Rot(0, 35, 0) * Box(10, 26, 10)
+# (b) scatter shallow surface pits
+for _ in range(30):
+    a = random.uniform(0, 6.283); z = random.uniform(6, 36); rr = random.uniform(7.5, 10.5)
+    result -= Pos(rr*math.cos(a), rr*math.sin(a), z) * Sphere(random.uniform(0.6, 1.3))
 ```
 Erosion reads as antiquity; a clean *broken* face (one big planar cut, lightly
 filleted) sells "fragment of the Parthenon" better than uniform roughness. Keep
@@ -179,59 +216,111 @@ pits shallow so walls stay above the min wall and the piece stays printable.
 
 ---
 
-## 5. Per-piece recipes (skeletons — elaborate, don't copy verbatim)
+## 5. Per-piece recipes (verified — runnable starting points)
 
-Each is a starting structure. Add the curvature, flutes, beading, fillets, and theme
-treatment from §3–4 to make it beautiful. Dimensions in mm; parameterize at the top.
+Every recipe below was executed and exports a valid STEP. They are deliberately
+SIMPLE skeletons: take them as a correct scaffold, then layer on §3 detail (flutes,
+beading, engraving, erosion), draw richer ogee profiles, and add fillets to make the
+piece sculptural. Parameterize dimensions at the top. (FIDE Staunton: king ~95 mm;
+Q > B > N ≈ R > P scale down; base diameter ~40–50% of height.)
 
-### Pawn — pure revolve
-Ball finial on a collared, ovee stem from a domed base. One clean `revolve` of a
-well-drawn half-profile (base torus → cove → ball-neck astragal → sphere top), then a
-base-rim fillet. The whole piece is the profile — spend your effort there.
-
-### Rook — revolve + crenellation cuts
+### Pawn — pure revolve + ball finial [verified]
+The whole piece IS the profile — spend your effort drawing the ogee curve well.
 ```python
-tower = revolve(<cylindrical castle half-profile with a torus base and top ring>)
-tower -= PolarLocations(0, 8) * Pos(0, R_top, top_z) * Box(gap_w, wall*3, crenel_h)
-result = fillet(tower.edges()..., 0.6)        # soften merlon tops & base
+import math
+with BuildPart() as pawn:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((0, 0), (14, 0), (14, 3))                       # base disc
+            Spline((14, 3), (6, 8), (5, 16), tangents=((-0.3, 1), (0, 1)))   # cove
+            Spline((5, 16), (6.5, 24), (4, 30), tangents=((0, 1), (-0.4, 1)))  # neck ogee
+            Line((4, 30), (0, 33)); Line((0, 33), (0, 0))            # close on the axis
+        make_face()
+    revolve(axis=Axis.Z)
+    add(Pos(0, 0, 36) * Sphere(5))                                   # ball finial
+result = pawn.part
 ```
-Optional: vertical reeding on the shaft, a course of dentils under the battlement.
 
-### Bishop — revolve + mitre slit + bead finial
-Revolve the tall ogee body and mitre; cut the characteristic diagonal slit with a
-thin rotated box (`Pos*Rot*Box`, width > nozzle); top with a small revolved bead.
-Add a ring of beading at the collar.
+### Rook — revolve body + crenellation cuts [verified]
+```python
+tower = Pos(0, 0, 22) * Cylinder(radius=11, height=44)              # replace with a revolved profile
+gap = Box(7, 30, 9)
+result = tower - PolarLocations(radius=0, count=8) * (Pos(0, 0, 42) * gap)
+```
+Better: revolve a castle profile (torus base, slight entasis, top ring), then cut the
+notches; optional vertical reeding + a course of dentils under the battlement.
 
-### Queen — revolve body + coronet of points + ball finial
-Revolve the elegant body; build ONE coronet spike (a small lofted/ revolved cone),
-array it with `PolarLocations(radius, count=9)`, fuse; cap with a sphere on an
-astragal. Keep spikes thick enough not to be fragile; chamfer their tips.
+### Bishop — revolve body + mitre slit + bead finial [verified]
+```python
+with BuildPart() as body:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((0, 0), (13, 0), (13, 3))
+            Spline((13, 3), (6, 12), (7, 30), tangents=((-0.3, 1), (0, 1)))
+            Spline((7, 30), (3, 45), (0, 52), tangents=((0, 1), (-1, 0.6)))  # mitre
+            Line((0, 52), (0, 0))
+        make_face()
+    revolve(axis=Axis.Z)
+result = body.part - Pos(0, 0, 44) * Rot(0, 35, 0) * Box(3, 30, 16)  # diagonal slit
+result += Pos(0, 0, 55) * Sphere(2.5)                                # bead finial
+```
 
-### King — revolve body + cross finial
-Revolve the stately body and crown; build a cross patée from two filleted boxes (or
-extruded profile) and fuse on a short neck. Thicken cross arms to the min wall and
-chamfer the arm ends; the cross is the classic failure point.
+### Queen — revolve body + coronet of points + monde [verified]
+```python
+with BuildPart() as body:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((0, 0), (15, 0), (15, 3))
+            Spline((15, 3), (7, 14), (8, 50), tangents=((-0.3, 1), (0, 1)))
+            Line((8, 50), (10, 56)); Line((10, 56), (0, 56)); Line((0, 56), (0, 0))
+        make_face()
+    revolve(axis=Axis.Z)
+spike = Pos(0, 0, 60) * Cone(bottom_radius=1.8, top_radius=0.4, height=8)
+result = body.part + PolarLocations(radius=8, count=9) * spike + Pos(0, 0, 70) * Sphere(3)
+```
+Keep spikes thick enough not to snap; chamfer the tips.
 
-### Knight — the sculptural one (loft + sweep + boolean detailing)
-This is where craft shows. Don't approximate with stacked boxes.
-1. **Base + collar:** revolve a disc + collar (shared with the set).
-2. **Neck/head spine:** `loft` 5–7 elliptical sections along a forward-leaning,
-   arching spine (see §2 loft) — wider at the jaw, narrowing at the poll. Lean the
-   sections so the crest is convex (back) and the throat concave (front).
-3. **Muzzle:** fuse a tapered lofted/swept block angled down-forward; round the nose
-   with a fillet; suggest nostrils with two tiny shallow sphere cuts.
-4. **Jaw & cheek:** fuse a softened wedge; blend into the neck with fillets.
-5. **Mane:** `sweep` an elliptical section down the crest spline; then cut shallow
-   parallel grooves (a small array of thin box/cylinder cuts) to suggest locks.
-6. **Ears:** two small lofted cones at the poll, leaning back; give them real
-   thickness — no needle tips.
-7. **Eyes/brow:** a brow ridge (small swept bead) and a shallow spherical eye socket
-   cut on each side give it life.
-8. **Unify:** fuse everything, then a global light fillet pass on the major seams so
-   it reads as carved stone, not assembled blocks.
-9. **Theme:** apply §3 erosion / a broken classical break face for the Parthenon look.
-Reinforce the neck (load-bearing, #1 ship-failure point); keep the muzzle's forward
-overhang within the material's overhang limit or short enough to self-support.
+### King — revolve body + cross patée [verified]
+```python
+with BuildPart() as body:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((0, 0), (16, 0), (16, 3))
+            Spline((16, 3), (7, 16), (8, 70), tangents=((-0.3, 1), (0, 1)))
+            Line((8, 70), (11, 76)); Line((11, 76), (0, 76)); Line((0, 76), (0, 0))
+        make_face()
+    revolve(axis=Axis.Z)
+result = body.part + Pos(0, 0, 88) * Box(3.5, 3.5, 18) + Pos(0, 0, 90) * Box(3.5, 12, 3.5)
+```
+Thicken the cross arms to the min wall and chamfer the ends — the cross is the
+classic ship-failure point.
+
+### Knight — the sculptural one (loft + fused features) [verified]
+Don't approximate with stacked boxes — loft a leaning spine, then fuse and sculpt.
+```python
+result = Pos(0, 0, 3.5) * Cylinder(radius=16, height=7)            # base
+result += Pos(0, 0, 9) * Cylinder(radius=11, height=4)            # collar (shared w/ set)
+with BuildPart() as neck:                                          # arched, leaning neck/head
+    for z, (rx, ry), tilt in [(11, (9, 9), 0), (24, (8, 11), 12),
+                              (34, (7, 13), 22), (42, (8, 14), 28)]:
+        with BuildSketch(Plane.XY.offset(z).rotated((0, tilt, 0))):
+            Ellipse(rx, ry)
+    loft()
+result += neck.part
+result += Pos(11, 0, 44) * Rot(0, 55, 0) * Box(20, 13, 11)        # muzzle (round the nose w/ fillet)
+result += Pos(-4, 5, 52) * Rot(20, 0, 0) * Cone(bottom_radius=2.2, top_radius=0.5, height=7)  # ear
+result += Pos(-4, -5, 52) * Rot(-20, 0, 0) * Cone(bottom_radius=2.2, top_radius=0.5, height=7) # ear
+try:
+    result = fillet(result.edges().group_by(Axis.Z)[0], radius=1.2)  # soften base rim
+except Exception:
+    pass
+```
+Then elevate it: more loft sections for a true equine curve; `sweep` a mane down the
+crest and cut groove-locks; shallow sphere cuts for nostrils and eye sockets; a brow
+ridge; a global light fillet pass so seams read as carved stone; and §3 erosion + one
+broken classical face for the Parthenon look. Reinforce the neck (load-bearing, #1
+ship-failure point); keep the muzzle's forward overhang within the material's limit or
+short enough to self-support.
 
 ---
 
