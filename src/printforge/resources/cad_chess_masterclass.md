@@ -426,32 +426,46 @@ with BuildPart() as base:
         make_face()
     revolve(axis=Axis.Z)
 result = base.part
-# neck: ellipses with a real forward arch
 with BuildPart() as neck:
-    for z,cx,(a,b) in [(11,0,(9,8)),(20,1,(8.6,8)),(29,3,(8,8.2)),(37,4.5,(8,8.6)),(41,4,(8.4,9))]:
+    for z,cx,(a,b) in [(11,0,(9,8)),(20,1,(8.6,8)),(29,3,(8,8.2)),(37,4.5,(7.8,8.6)),(42,5,(7.5,8.8))]:
         with BuildSketch(Plane.XY.offset(z)):
             with Locations((cx,0)): Ellipse(a,b)
     loft()
-# HEAD: loft sections marching forward (+X) and dipping down in Z -> a real muzzle.
+# HEAD: make it EQUINE, not canine -- a LONG face with a near-straight nose bridge
+# (gentle dip), narrowing to a SMALL muzzle far forward (x~35). A short, steeply-dipping
+# muzzle reads as a dog snout; keep it long and shallow.
 with BuildPart() as head:
-    for x,zc,(a,b) in [(-4,41,(11,9)),(4,43,(10.5,8.6)),(11,41,(8.5,7)),(18,37,(6,5.5)),(24,33,(4.5,4))]:
-        with BuildSketch(Plane.YZ.offset(x)):                  # YZ: local-x=Y(width b), local-y=Z(height a)
+    for x,zc,(a,b) in [(-3,43,(11,8.5)),(6,44,(10,8)),(15,41,(8,6.8)),(23,38,(6,5.2)),(30,35,(4.6,4.2)),(35,33,(3.6,3.4))]:
+        with BuildSketch(Plane.YZ.offset(x)):
             with Locations((0,zc)): Ellipse(b,a)
     loft()
-result += neck.part + head.part + Pos(11,0,33)*Sphere(5.6)     # jaw bulge, fused
-# CLEAR FACE so it reads as a living animal, NOT a droid:
-result -= Pos(20,0,31.5)*Rot(0,10,0)*Box(13,9,1.1)             # mouth-line groove
-result -= Pos(23.5,2.2,35)*Sphere(1.0); result -= Pos(23.5,-2.2,35)*Sphere(1.0)  # nostrils
-for sy in (1,-1):                                              # eyes: socket + eyeball + brow
-    result -= Pos(4,sy*7.0,44)*scale(Sphere(2.4), by=(1.3,0.5,1.0))
-    result += Pos(5,sy*7.2,44)*Sphere(1.3)
-    result += Pos(2,sy*6.5,47)*Rot(0,0,sy*-20)*scale(Cone(bottom_radius=2,top_radius=0.3,height=5),by=(0.4,1,1))
-def ear(sy):                                                   # flattened leaf ears, fused
-    return Pos(-3,sy*4,46)*Rot(sy*-18,-14,0)*scale(Cone(bottom_radius=2.8,top_radius=0.4,height=9),by=(0.5,1,1))
-result += ear(1) + ear(-1)
+result += neck.part + head.part
+result += Pos(3,0,33)*scale(Sphere(7), by=(1.2,1.0,0.9))        # big JAW at the back-bottom
+result -= Pos(31,0,32)*Rot(0,12,0)*Box(9,7,1.0)                 # lip line at the muzzle
+result -= Pos(33,1.7,34)*Sphere(0.9); result -= Pos(33,-1.7,34)*Sphere(0.9)  # nostrils
+# SMALL ALMOND eyes on the SIDE (a big round recessed lens reads as a drone -- avoid it):
+for sy in (1,-1):
+    result -= Pos(9,sy*7.2,42)*Rot(0,0,sy*-18)*scale(Sphere(1.7), by=(1.6,0.4,0.9))
+    result += Pos(9.5,sy*7.3,42)*Sphere(0.8)
+def ear(sy):                                                   # upright ears at the poll
+    return Pos(-2,sy*4,47)*Rot(sy*-10,-6,0)*scale(Cone(bottom_radius=2.6,top_radius=0.3,height=10),by=(0.45,1,1))
+result += ear(1)+ear(-1)
+# MANE lying ALONG the crest (hugs the neck; never a thin ribbon that hooks off the back):
+with BuildPart() as mane:
+    with BuildLine(): Spline((-4,0,47),(-6,0,38),(-6,0,28),(-4,0,18),tangents=((0.2,0,-1),(0.3,0,-1)))
+    with BuildSketch(Plane.YZ): Ellipse(3.4,2.2)
+    sweep()
+mm = mane.part
+for i in range(6): mm -= Pos(-6,0,20+i*4.5)*Rot(0,12,0)*Box(2.0,9,0.9)
+result += mm
 try: result = fillet(result.edges().group_by(Axis.Z)[0],radius=1.0)
 except Exception: pass
 ```
+This reads as a horse, not a dog or a drone. The three tells to avoid: a SHORT
+steeply-dipping muzzle (dog), a BIG round recessed eye-lens (drone), and a thin mane
+ribbon that hooks off the back. Long shallow face + small almond side-eyes + a mane
+that hugs the crest fixes all three. **Horns/antlers for non-horse themes must seat
+their base INTO the poll (overlap z~44-47), not float above the head.**
 **Vary the head per theme** — don't ship the identical head on every piece. Shift the
 proportions, the eye size/shape, the muzzle length, the ear/horn style, and the
 surface to suit the theme (a dragon snout is longer with a heavy brow; a minimalist
