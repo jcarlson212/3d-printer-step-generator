@@ -1,0 +1,62 @@
+[project]
+name = "printforge"
+version = "0.1.0"
+description = "Agentic workflows for generating 3D-printable STEP files (first workflow: chess piece sets)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jason Carlson" }]
+
+dependencies = [
+    # Agentic engine + multi-provider model access (Anthropic, OpenAI, Bedrock,
+    # and any OpenAI-compatible server such as LM Studio).
+    "pydantic-ai>=0.0.20",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    # Interactive local CLI
+    "typer>=0.12",
+    "questionary>=2.0",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+# CAD execution: turns LLM-authored build123d code into a real .step file.
+# Pulls in OpenCascade (OCP), which is large -- only needed where STEP is rendered
+# (local runs that export, and the Lambda container image).
+cad = ["build123d>=0.7"]
+# Cloud / Bedrock access from the local CLI or tooling.
+aws = ["boto3>=1.34"]
+# Infrastructure-as-code (kept here so `uv sync --extra infra` provisions the CDK app).
+infra = ["aws-cdk-lib>=2.140", "constructs>=10.3"]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+printforge = "printforge.cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/printforge"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version.local
+
+# uv
+# (uv.lock IS committed)
+
+# Environments / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Tests / tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# AWS CDK
+infra/cdk.out/
+infra/.cdk.staging/
+cdk.out/
+
+# Generated artifacts (STEP/CAD output from runs)
+out/
+*.local.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
