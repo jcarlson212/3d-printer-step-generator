@@ -198,6 +198,117 @@ pits shallow so walls stay above the min wall and the piece stays printable.
 
 ---
 
+## 3b. Advanced surface & form techniques (verified)
+
+These unlock whole design families beyond the plain revolve. Each is executed and
+exports a valid STEP. They generalize: apply the twist/ripple/lattice/knurl to any
+piece's body, not just the demo shape.
+
+### Twisted / spiral flutes — loft rotated cross-sections [verified]
+A twisted column comes from lofting the SAME fluted cross-section repeated up the
+height, each copy rotated a little. Build the cross-section from computed points in a
+`Polyline(..., close=True)`.
+```python
+import math
+def fluted_pts(r, amp, lobes, n=160):
+    out = []
+    for k in range(n):
+        t = 2 * math.pi * k / n
+        rad = r + amp * math.cos(lobes * t)     # lobes flutes around
+        out.append((rad * math.cos(t), rad * math.sin(t)))
+    return out
+height, slices, twist_deg = 50, 14, 90          # 90deg of twist over the height
+with BuildPart() as col:
+    for i in range(slices):
+        z = height * i / (slices - 1)
+        ang = twist_deg * i / (slices - 1)
+        with BuildSketch(Plane.XY.offset(z).rotated((0, 0, ang))):
+            with BuildLine():
+                Polyline(*fluted_pts(9, 1.2, 12), close=True)
+            make_face()
+    loft()
+result = col.part
+```
+
+### Rippled / swirled body — modulate the radius per section [verified]
+Loft sections whose radius is a base silhouette plus a sinusoidal ripple whose phase
+shifts with height (the swirl). Great for organic, flowing vases/bodies.
+```python
+import math
+def wave_pts(z, n=160):
+    base = 7 + 4 * math.sin(math.pi * z / 44)          # the silhouette
+    out = []
+    for k in range(n):
+        t = 2 * math.pi * k / n
+        rad = base + 0.9 * math.sin(16 * t + 0.18 * z)  # 16 ribs; phase shifts w/ z -> swirl
+        out.append((rad * math.cos(t), rad * math.sin(t)))
+    return out
+with BuildPart() as v:
+    for i in range(22):
+        z = 44 * i / 21
+        with BuildSketch(Plane.XY.offset(z)):
+            with BuildLine():
+                Polyline(*wave_pts(z), close=True)
+            make_face()
+    loft()
+result = v.part
+```
+
+### Porous / voronoi-style shell — hollow + punch cells [verified]
+A true Voronoi is hard in B-rep; this reads the same: shell the body (outer minus a
+slightly smaller inner), then subtract scattered cell holes, and keep a solid base for
+strength. Keep hole count modest (each is a boolean; large counts are slow + heavy).
+```python
+import math, random
+random.seed(3)
+outer = Pos(0, 0, 24) * Cylinder(radius=11, height=48)
+inner = Pos(0, 0, 24) * Cylinder(radius=8.5, height=49)
+shell = outer - inner
+holes = []
+for _ in range(90):
+    a = random.uniform(0, 6.283); z = random.uniform(4, 44)
+    holes.append(Pos(10 * math.cos(a), 10 * math.sin(a), z) * Sphere(random.uniform(1.6, 2.8)))
+result = (shell - holes) + Pos(0, 0, 3) * Cylinder(radius=14, height=6)  # solid base
+```
+
+### Helical rib (thread/rope) — sweep along a `Helix` [verified]
+```python
+core = Pos(0, 0, 22) * Cylinder(radius=8, height=44)
+with BuildPart() as ribs:
+    with BuildLine():
+        Helix(pitch=14, height=42, radius=8.4)         # lefthand=True for opposite handedness
+    with BuildSketch(Plane.XZ):
+        Circle(1.3)
+    sweep()
+result = core + ribs.part
+```
+
+### Diamond knurl — crosshatched helical grooves [verified, heavy ~50s]
+Don't cut hundreds of individual diamonds (too slow). Cut two opposing families of
+helical grooves; the diamonds are what's left between them. `.rotate(Axis.Z, a)` spaces
+the starts; `lefthand` flips the handedness.
+```python
+import math
+band = Pos(0, 0, 10) * Cylinder(radius=10, height=14)
+def grooves(lefthand, n=12):
+    out = []
+    for k in range(n):
+        with BuildPart() as g:
+            with BuildLine():
+                Helix(pitch=10, height=16, radius=10, lefthand=lefthand).rotate(Axis.Z, 360 * k / n)
+            with BuildSketch(Plane.XZ):
+                Rectangle(1.1, 1.1, rotation=45)
+            sweep()
+        out.append(Pos(0, 0, 2) * g.part)
+    return out
+result = band - grooves(False) - grooves(True)
+```
+
+> Performance: knurl and dense porous shells do many booleans — keep counts modest
+> and expect longer execution. Prefer twist/ripple (loft-based, cheap) when you can.
+
+---
+
 ## 4. Proportion and beauty (Staunton, classically informed)
 
 - **Silhouette first.** A piece is judged in profile from across a board. Make the
