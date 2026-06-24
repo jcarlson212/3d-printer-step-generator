@@ -409,36 +409,80 @@ result = body.part + Pos(0, 0, 88) * Box(3.5, 3.5, 18) + Pos(0, 0, 90) * Box(3.5
 Thicken the cross arms to the min wall and chamfer the ends — the cross is the
 classic ship-failure point.
 
-### Knight — the sculptural one (loft + fused features) [verified]
-Don't approximate with stacked boxes — loft a leaning spine, then fuse and sculpt.
+### Knight — THE INTEGRATED HEAD (this is make-or-break) [verified]
+A knight lives or dies on the head. The cardinal sin is a vertical neck-cylinder with
+a horizontal cone/pipe muzzle stuck on the side and two bare cones for ears — that
+reads as junkyard plumbing, not a horse. Build the head as ONE coherent mass that
+**arches forward and dips DOWN** into a tapered muzzle (muzzle at the front-bottom,
+poll up-back), fused into the neck. The recipe below produces a real equine head:
 ```python
-result = Pos(0, 0, 3.5) * Cylinder(radius=16, height=7)            # base
-result += Pos(0, 0, 9) * Cylinder(radius=11, height=4)            # collar (shared w/ set)
-with BuildPart() as neck:                                          # arched, leaning neck/head
-    for z, (rx, ry), tilt in [(11, (9, 9), 0), (24, (8, 11), 12),
-                              (34, (7, 13), 22), (42, (8, 14), 28)]:
-        with BuildSketch(Plane.XY.offset(z).rotated((0, tilt, 0))):
-            Ellipse(rx, ry)
+base = Pos(0,0,4)*Cylinder(radius=15,height=8) + Pos(0,0,9.5)*Cylinder(radius=11,height=3)
+# neck: vertical ellipses leaning forward (center x grows up the neck)
+with BuildPart() as neck:
+    for z,cx,(a,b) in [(11,0,(9,8)),(22,1.5,(8.5,8)),(32,3,(8,8.5)),(40,3,(8.5,9))]:
+        with BuildSketch(Plane.XY.offset(z)):
+            with Locations((cx,0)): Ellipse(a,b)
     loft()
-result += neck.part
-# MUZZLE — a tapered, ROUNDED form, never a raw faceted box. A leaning cone + a
-# sphere nose reads as a horse muzzle; a Box reads as a crystal. Round it.
-result += Pos(8, 0, 45) * Rot(0, 70, 0) * Cone(bottom_radius=7, top_radius=4.5, height=14)
-result += Pos(15, 0, 41) * Sphere(4.5)                           # rounded nose
-result += Pos(-4, 5, 52) * Rot(20, 0, 0) * Cone(bottom_radius=2.2, top_radius=0.5, height=7)  # ear
-result += Pos(-4, -5, 52) * Rot(-20, 0, 0) * Cone(bottom_radius=2.2, top_radius=0.5, height=7) # ear
-try:
-    result = fillet(result.edges().group_by(Axis.Z)[0], radius=1.2)  # soften base rim
-except Exception:
-    pass
+# HEAD: loft sections marching forward (+X) and dipping down in Z -> a real muzzle.
+with BuildPart() as head:
+    for x,zc,(a,b) in [(-4,40,(11,9)),(4,42,(10,8.5)),(11,40,(8,7)),(18,36,(6,5.5)),(24,33,(4.5,4))]:
+        with BuildSketch(Plane.YZ.offset(x)):                  # YZ: local-x=Y(width b), local-y=Z(height a)
+            with Locations((0,zc)): Ellipse(b,a)
+    loft()
+result = base + neck.part + head.part
+result += Pos(10,0,33)*Sphere(5.5)                             # jaw bulge, fused
+# sculpted muzzle: mouth-line groove + recessed nostrils (flush cuts, never stuck-on balls)
+result -= Pos(20,0,32)*Rot(0,8,0)*Box(12,9,0.9)               # mouth line
+result -= Pos(23,2.2,35)*Sphere(0.9); result -= Pos(23,-2.2,35)*Sphere(0.9)
+# leaf ears: FLATTENED curved cones fused into the poll with real overlap (not bare cones)
+def ear(sy):
+    e = scale(Cone(bottom_radius=2.8,top_radius=0.4,height=9), by=(0.5,1.0,1.0))
+    return Pos(-3,sy*4,45)*Rot(sy*-18,-14,0)*e
+result += ear(1) + ear(-1)
+try: result = fillet(result.edges().group_by(Axis.Z)[0],radius=1.2)
+except Exception: pass
 ```
-Then elevate it: more loft sections for a true equine curve; build the muzzle and jaw
-as smooth tapered/lofted/swept masses (round everything — a horse has no flat facets);
-`sweep` a mane down the crest and cut groove-locks; shallow sphere cuts for nostrils
-and eye sockets; a brow ridge; a global light fillet pass so seams read as carved
-stone; then RESTRAINED §3 erosion + one broken classical face for the Parthenon look.
-Reinforce the neck (load-bearing, #1 ship-failure point); keep the muzzle's forward
-overhang within the material's limit or short enough to self-support.
+Elevate from there: more head sections for a finer equine curve; a swept mane of locks
+down the crest (a ribbon + groove cuts, NEVER a cluster of spheres); a brow ridge and
+recessed eye sockets; a global light fillet so seams read as carved. Then apply the
+theme (erosion / scales / panels / etc.) over this solid head — never instead of it.
+Reinforce the neck (load-bearing, #1 ship-failure point).
+
+---
+
+## 5b. Aesthetics: what reads as good vs amateurish (human-reviewed)
+
+These are distilled from real human design review. They are the difference between
+"a 4/10 that looks like primitives stitched together" and "an 8/10 that reads as the
+thing." Apply them to EVERY piece.
+
+**The head (fixes the most common failure):**
+- Muzzle/mouth = a sculpted front-of-head with a mouth-line groove + recessed nostrils.
+  NEVER a sphere stuck on a cylinder ("balls and cylinders"), never a horizontal pipe.
+- Ears/horns = flattened, curved, shaped forms fused into the head with real overlap.
+  NEVER bare naked cones; never floating or only point-touching the head.
+- The head is one integrated mass (forehead→jaw→muzzle) leaning forward-and-DOWN.
+
+**Detail & theme (don't be basic):**
+- Simplify from REAL references (use the reference images), don't invent from primitives.
+  Enumerate the theme's signature features and actually carve them: a dragon has
+  overlapping shingle-scales + snout + swept horns + spinal ridge; cyberpunk has a
+  thick carved jetpack + antenna + recessed screen-glass eyes + wheels/vents; gothic
+  has clustered pinnacles + crockets + finials + pointed lancet windows.
+- Make detail SUBSTANTIAL and deep enough to read at piece size — timid, shallow, or
+  uniform texture (a faint speckle, neat rings of bumps) looks like noise.
+- Integrate texture across the WHOLE form (head, body, base) as one language, not an
+  isolated band on the shaft.
+- The base is a design opportunity that carries the theme (gear/wheels, broken column,
+  hex boss…) — not a default cylinder/disc.
+
+**Material read:**
+- Marble/stone stays SMOOTH; peppering it with pits makes it look like corroded/cast
+  metal. Weather it with one clean broken face + a few edge chips, not all-over pitting.
+
+**Structure (also ship-safety):**
+- Every added mass must overlap and truly fuse — no floating, no kissing-at-a-point.
+  A detached ear is both ugly and a guaranteed print/ship failure.
 
 ---
 
