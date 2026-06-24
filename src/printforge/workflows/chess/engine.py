@@ -44,7 +44,8 @@ def _build_email_body(request: ChessWorkflowRequest, artifacts: list[PieceArtifa
     parts.append("")
     machine, material = resolve_machine_material(request.machine_key, request.material_key)
     parts.append(f"Machine:   {machine.name}")
-    parts.append(f"Material:  {material.name}  (preferred: {', '.join(request.preferred_materials)})")
+    preferred = ", ".join(request.preferred_materials)
+    parts.append(f"Material:  {material.name}  (preferred: {preferred})")
     if request.theme:
         parts.append("")
         parts.append("Theme:")

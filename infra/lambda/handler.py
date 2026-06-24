@@ -50,7 +50,12 @@ def handler(event: dict, context: object) -> dict:  # noqa: ARG001
         result = run_chess_workflow(request, out_dir="/tmp/out", send_email=True)
     except Exception as e:  # generation/CAD/delivery failure
         return _response(
-            500, {"error": "generation failed", "detail": str(e), "order_id": request.order.order_id}
+            500,
+            {
+                "error": "generation failed",
+                "detail": str(e),
+                "order_id": request.order.order_id,
+            },
         )
 
     return _response(

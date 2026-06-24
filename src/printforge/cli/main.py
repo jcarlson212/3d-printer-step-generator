@@ -58,8 +58,7 @@ def _optional_text(label: str, default: str = "") -> str | None:
 
 
 def _email(label: str) -> str:
-    from pydantic import TypeAdapter
-    from pydantic import EmailStr
+    from pydantic import EmailStr, TypeAdapter
 
     adapter = TypeAdapter(EmailStr)
 

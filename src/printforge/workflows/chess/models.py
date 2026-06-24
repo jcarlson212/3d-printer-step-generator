@@ -60,7 +60,7 @@ class ChessWorkflowRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _validate(self) -> "ChessWorkflowRequest":
+    def _validate(self) -> ChessWorkflowRequest:
         # Scope must be within what's currently enabled.
         disabled = [p for p in self.pieces if p not in ENABLED_PIECES]
         if disabled:

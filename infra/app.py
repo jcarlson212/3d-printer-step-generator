@@ -16,7 +16,6 @@ Environment knobs (optional):
 import os
 
 import aws_cdk as cdk
-
 from stacks.api_stack import ChessStepApiStack
 
 app = cdk.App()

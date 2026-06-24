@@ -101,5 +101,9 @@ class ChessStepApiStack(Stack):
         plan.add_api_stage(stage=api.deployment_stage)
 
         CfnOutput(self, "ApiUrl", value=api.url_for_path("/generate"))
-        CfnOutput(self, "ApiKeyId", value=key.key_id,
-                  description="Retrieve value: aws apigateway get-api-key --api-key <id> --include-value")
+        CfnOutput(
+            self,
+            "ApiKeyId",
+            value=key.key_id,
+            description="Get value: aws apigateway get-api-key --api-key <id> --include-value",
+        )

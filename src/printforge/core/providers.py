@@ -11,7 +11,7 @@ default credential chains -- nothing is hard-coded.
 from __future__ import annotations
 
 import os
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from pydantic_ai.models import Model
 
 
-class Provider(str, Enum):
+class Provider(StrEnum):
     ANTHROPIC = "anthropic"  # Claude API
     OPENAI = "openai"  # OpenAI API
     LMSTUDIO = "lmstudio"  # local LM Studio server (OpenAI-compatible)
@@ -53,7 +53,7 @@ class ProviderConfig(BaseModel):
     aws_region: str | None = None
 
     @model_validator(mode="after")
-    def _fill_defaults(self) -> "ProviderConfig":
+    def _fill_defaults(self) -> ProviderConfig:
         if self.model is None:
             self.model = DEFAULT_MODELS[self.provider]
         if self.provider is Provider.LMSTUDIO and not self.base_url:
@@ -63,7 +63,7 @@ class ProviderConfig(BaseModel):
         return self
 
 
-def build_model(cfg: ProviderConfig) -> "Model":
+def build_model(cfg: ProviderConfig) -> Model:
     """Construct a pydantic-ai ``Model`` from a :class:`ProviderConfig`."""
     if cfg.provider is Provider.ANTHROPIC:
         from pydantic_ai.models.anthropic import AnthropicModel

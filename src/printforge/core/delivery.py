@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import os
 from email.message import EmailMessage
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, EmailStr, Field
@@ -25,7 +25,7 @@ from pydantic import BaseModel, EmailStr, Field
 DEFAULT_RECIPIENT = "cad@garrychess.ai"
 
 
-class DeliveryMethod(str, Enum):
+class DeliveryMethod(StrEnum):
     AUTO = "auto"
     SES = "ses"
     SMTP = "smtp"

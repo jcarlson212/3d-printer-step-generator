@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Color(str, Enum):
+class Color(StrEnum):
     WHITE = "white"
     BLACK = "black"
 
 
-class PieceType(str, Enum):
+class PieceType(StrEnum):
     PAWN = "pawn"
     KNIGHT = "knight"
     BISHOP = "bishop"
