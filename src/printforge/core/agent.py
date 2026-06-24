@@ -90,12 +90,16 @@ def revise_piece(
     prev_code: str,
     observation: str,
     executed: bool,
+    original_brief: str | None = None,
+    reference_images: list[bytes] | None = None,
 ) -> CadGeneration:
     """Revise CAD code given an observation (a runtime error and/or geometry checks).
 
     This is the "reflect + act again" step of the build loop. ``executed`` is False
     when the code raised (fix the bug) and True when it ran but failed checks
-    (improve the geometry).
+    (improve the geometry). ``original_brief`` is the full original task (theme,
+    styling, gotchas) -- passed every iteration so revisions never drift away from
+    the aesthetic while chasing a passing geometry.
     """
     model = build_model(provider_cfg)
     agent = Agent(
@@ -117,11 +121,26 @@ def revise_piece(
             "(Polyline/Line/Spline/Bezier) outside a `with BuildLine()` block, or mixing "
             "the builder and algebra APIs."
         )
+    brief_block = (
+        f"--- ORIGINAL BRIEF (keep honoring this, especially the theme/styling) ---\n"
+        f"{original_brief}\n\n"
+        if original_brief
+        else ""
+    )
     prompt = (
         f"{header}\n\n"
+        f"{brief_block}"
         f"--- PREVIOUS CODE ---\n{prev_code}\n\n"
         f"--- OBSERVATION ---\n{observation}\n\n"
         "Return the corrected, complete code (still assigning the final solid to "
-        "`result`) and an updated detailed_explanation noting what changed and why."
+        "`result`). Fix the problem above WITHOUT abandoning the theme and styling from "
+        "the brief. Also return an updated detailed_explanation noting what changed."
     )
+    if reference_images:
+        from pydantic_ai import BinaryContent
+
+        prompt_input: list[object] = [prompt, "Reference images (styling inspiration):"]
+        for img in reference_images:
+            prompt_input.append(BinaryContent(data=img, media_type="image/png"))
+        return agent.run_sync(prompt_input).output
     return agent.run_sync(prompt).output

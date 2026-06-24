@@ -63,6 +63,19 @@ def build_piece(
     max_iters: int = 3,
     progress=lambda _m: None,
 ) -> BuildOutcome:
+    # The full original brief (theme, styling, gotchas, constraints) -- threaded into
+    # every revision so the loop never drifts away from the aesthetic.
+    brief = template.user_prompt(
+        machine=machine,
+        material=material,
+        color=color,
+        theme=theme,
+        target=target,
+        gotchas=gotchas,
+        prior=prior,
+        personalization=personalization,
+    )
+
     gen = generate_piece(
         template,
         provider_cfg=provider_cfg,
@@ -118,6 +131,8 @@ def build_piece(
                 prev_code=gen.cad_code,
                 observation=report.as_observation(),
                 executed=exec_res.ok,
+                original_brief=brief,
+                reference_images=reference_images,
             )
 
     return BuildOutcome(generation=gen, execution=exec_res, report=report, stages=stages)
