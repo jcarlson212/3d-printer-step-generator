@@ -101,7 +101,8 @@ def run_chess_workflow(
             "so it resolves cleanly."
         )
 
-    # Reference images (rendered from STLs and/or provided files) for vision models.
+    # Reference images for vision models: rendered STLs/provided files, plus optional
+    # web image search for the theme so the model simplifies from real references.
     reference_images: list[bytes] = []
     if request.use_vision:
         from printforge.core.vision import render_references
@@ -111,7 +112,14 @@ def run_chess_workflow(
             image_paths=request.reference_images,
             max_images=request.max_reference_images,
         )
-        say(f"Vision: {len(reference_images)} reference image(s) prepared.")
+        say(f"Vision: {len(reference_images)} reference image(s) from STLs/files.")
+    if request.auto_reference_images:
+        from printforge.core.reference_search import fetch_reference_images
+
+        query = request.reference_query or (request.theme or "").strip()[:80] or "chess knight"
+        web = fetch_reference_images(query, count=request.reference_search_count)
+        reference_images = (reference_images + web)[: request.max_reference_images]
+        say(f"Reference search: {len(web)} web image(s) for '{query[:40]}'.")
 
     artifacts: list[PieceArtifact] = []
     prior: list[PriorPieceContext] = []
@@ -139,6 +147,7 @@ def run_chess_workflow(
             reference_images=reference_images or None,
             max_iters=request.max_repairs + 1,
             refine_rounds=request.refine_rounds,
+            safety_rounds=request.safety_rounds,
             progress=lambda m: say(f"      {m}"),
         )
         gen = outcome.generation

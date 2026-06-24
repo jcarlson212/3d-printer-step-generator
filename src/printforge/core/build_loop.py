@@ -17,7 +17,13 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .agent import CadGeneration, generate_piece, refine_piece, revise_piece
+from .agent import (
+    CadGeneration,
+    generate_piece,
+    refine_piece,
+    revise_piece,
+    safety_review,
+)
 from .executor import ExecutionResult, cad_available, execute_to_step
 from .profiles import MachineProfile, MaterialProfile
 from .prompt import BasePieceTemplate, PriorPieceContext, TargetDimensions
@@ -62,6 +68,7 @@ def build_piece(
     reference_images: list[bytes] | None = None,
     max_iters: int = 3,
     refine_rounds: int = 0,
+    safety_rounds: int = 0,
     progress=lambda _m: None,
 ) -> BuildOutcome:
     # The full original brief (theme, styling, gotchas, constraints) -- threaded into
@@ -177,6 +184,58 @@ def build_piece(
                 gen, exec_res, report = cand, cand_res, cand_report
             else:
                 progress(f"refine {r + 1}: rejected (would regress); keeping prior valid solid")
+                break
+
+    # Final packaging/durability safety gate: review the finished piece for ship
+    # safety; if unsafe, revise with the issue explanation threaded in and re-check.
+    if exec_res.ok and report.passed and safety_rounds > 0:
+        from .vision import render_solid_views
+
+        for s in range(safety_rounds):
+            imgs = render_solid_views(exec_res.stl_path) if exec_res.stl_path else []
+            verdict = safety_review(
+                template,
+                provider_cfg=provider_cfg,
+                cad_code=gen.cad_code,
+                render_images=imgs,
+                material=material,
+                machine=machine,
+            )
+            if verdict.ok:
+                progress(f"safety check {s + 1}: ship-safe")
+                break
+            issues = "PACKAGING/DURABILITY ISSUES FOUND (fix these, keep the design):\n- " + (
+                "\n- ".join(verdict.issues)
+            )
+            progress(f"safety check {s + 1}: not ship-safe -> revising ({len(verdict.issues)} issues)")
+            cand = revise_piece(
+                template,
+                provider_cfg=provider_cfg,
+                prev_code=gen.cad_code,
+                observation=issues,
+                executed=True,
+                original_brief=brief,
+                reference_images=reference_images,
+            )
+            cand_res = execute_to_step(cand.cad_code, out_path)
+            cand_report = (
+                validate_geometry(cand_res, target=target, machine=machine)
+                if cand_res.ok
+                else CheckReport(errors=[cand_res.error or "execution failed"])
+            )
+            stages.append(
+                BuildStage(
+                    iteration=len(stages) + 1,
+                    executed=cand_res.ok,
+                    passed=cand_res.ok and cand_report.passed,
+                    errors=cand_report.errors,
+                    warnings=["safety: " + i for i in verdict.issues],
+                )
+            )
+            if cand_res.ok and cand_report.passed:
+                gen, exec_res, report = cand, cand_res, cand_report
+            else:
+                progress(f"safety revise {s + 1}: rejected (would regress); keeping prior solid")
                 break
 
     return BuildOutcome(generation=gen, execution=exec_res, report=report, stages=stages)

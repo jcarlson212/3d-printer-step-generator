@@ -62,6 +62,23 @@ class ChessWorkflowRequest(BaseModel):
     )
     max_reference_images: int = Field(default=4, ge=1, le=12)
 
+    # Auto reference search: pull a few web images for the theme so the model
+    # simplifies from real references instead of inventing form from primitives.
+    auto_reference_images: bool = False
+    reference_query: str | None = Field(
+        default=None, description="Short image-search query (e.g. 'dragon head'); "
+        "defaults to a query derived from the theme.",
+    )
+    reference_search_count: int = Field(default=4, ge=1, le=8)
+
+    # Final packaging/durability safety gate: review the finished piece for ship
+    # safety (everything attached, nothing fragile) and loop back to fix if not.
+    safety_rounds: int = Field(
+        default=1, ge=0, le=3,
+        description="Final QA passes: review for packaging/durability issues and "
+        "revise with the issue explanation threaded back in if unsafe.",
+    )
+
     # Execution + delivery.
     provider: ProviderConfig = Field(default_factory=ProviderConfig)
     delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)

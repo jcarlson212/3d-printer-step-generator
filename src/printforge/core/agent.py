@@ -214,3 +214,59 @@ def refine_piece(
             parts.append(BinaryContent(data=img, media_type="image/png"))
     parts.append(text)
     return agent.run_sync(parts).output
+
+
+class SafetyReport(BaseModel):
+    """Verdict of the final packaging/durability QA gate."""
+
+    ok: bool = Field(description="True if the piece is safe to print, pack, and ship as-is.")
+    issues: list[str] = Field(
+        default_factory=list,
+        description="Concrete packaging/durability problems to fix (empty if ok).",
+    )
+
+
+def safety_review(
+    template: BasePieceTemplate,
+    *,
+    provider_cfg: ProviderConfig,
+    cad_code: str,
+    render_images: list[bytes],
+    material: MaterialProfile,
+    machine: MachineProfile,
+) -> SafetyReport:
+    """Final QA: is the finished piece safe to print/pack/ship? Returns issues to fix."""
+    from pydantic_ai import BinaryContent
+
+    model = build_model(provider_cfg)
+    agent = Agent(
+        model,
+        output_type=SafetyReport,
+        system_prompt=(
+            "You are a strict 3D-print packaging & durability QA reviewer. You judge "
+            "whether a finished piece will survive printing, handling, and shipping."
+        ),
+        model_settings=caching_model_settings(provider_cfg),
+        retries=3,
+    )
+    text = (
+        f"Material: {material.name} ({material.polymer}) -- "
+        f"min wall {material.min_wall_mm} mm; brittle if thin. Printer: {machine.name}, "
+        f"min feature {machine.min_feature_mm} mm.\n\n"
+        f"--- CODE ---\n{cad_code}\n\n"
+        "Review the rendered piece and the code for SHIP SAFETY. Flag as issues:\n"
+        "- Any part that is detached, floating, or only point/edge-touching (must be "
+        "one fully-fused solid -- ears/horns/finials must share real volume with the body).\n"
+        "- Thin fragile protrusions that will snap (spikes, antennae, thin manes, ears, "
+        "cross/finial arms) unless they are thick enough for the material.\n"
+        "- A neck or other load-bearing cross-section too thin for a top-heavy piece.\n"
+        "- A base too narrow/unstable for the height (tipping/breakage risk).\n"
+        "Set ok=false with concrete, actionable issues if ANY apply; ok=true only if it "
+        "would reliably survive packing and shipping. These are durability guidelines, "
+        "not rigid rules -- judge real risk."
+    )
+    parts: list[object] = ["Rendered views of the finished piece:"]
+    for img in render_images:
+        parts.append(BinaryContent(data=img, media_type="image/png"))
+    parts.append(text)
+    return agent.run_sync(parts).output
