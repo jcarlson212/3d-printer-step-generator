@@ -39,7 +39,7 @@ stack = ChessStepApiStack(
     ),
     delivery_sender=os.environ.get("DELIVERY_SENDER", "cad@garrychess.ai"),
     bedrock_model_id=os.environ.get(
-        "BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-8-v1:0"
+        "BEDROCK_MODEL_ID", "global.anthropic.claude-opus-4-8"
     ),
 )
 

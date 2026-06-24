@@ -25,19 +25,41 @@ from .prompt import RESULT_VAR
 # build123d in scope and exports `result` to STEP.
 _RUNNER = f"""
 import sys
-from build123d import *  # noqa: F401,F403
 
 code = open(sys.argv[1]).read()
+# Run the model's code in a namespace that already has build123d's names, matching
+# the system-prompt contract ("assume `from build123d import *` is already done").
 ns = {{}}
+exec("from build123d import *", ns)
 exec(code, ns)
 result = ns.get({RESULT_VAR!r})
 if result is None:
     raise SystemExit("CAD code did not define a `{RESULT_VAR}` solid")
+from build123d import export_step
+export_step(result, sys.argv[2])
+
+# Geometry diagnostics for the validation stage.
+import json as _json
+_diag = {{}}
 try:
-    exporter = export_step  # provided by build123d
-except NameError:  # pragma: no cover - older/newer API fallback
-    from build123d import export_step as exporter
-exporter(result, sys.argv[2])
+    _solids = result.solids()
+    _diag["n_solids"] = len(_solids)
+except Exception:
+    _diag["n_solids"] = None
+try:
+    _diag["volume_mm3"] = float(result.volume)
+except Exception:
+    _diag["volume_mm3"] = None
+try:
+    _bb = result.bounding_box()
+    _diag["bbox_mm"] = [float(_bb.size.X), float(_bb.size.Y), float(_bb.size.Z)]
+except Exception:
+    _diag["bbox_mm"] = None
+try:
+    _diag["is_valid"] = bool(result.is_valid())
+except Exception:
+    _diag["is_valid"] = None
+print("DIAG:" + _json.dumps(_diag))
 print("OK")
 """
 
@@ -48,6 +70,11 @@ class ExecutionResult(BaseModel):
     step_bytes_len: int | None = None
     skipped: bool = False
     error: str | None = None
+    # Geometry diagnostics (populated on success) for the validation stage.
+    n_solids: int | None = None
+    volume_mm3: float | None = None
+    bbox_mm: list[float] | None = None
+    is_valid: bool | None = None
 
 
 def cad_available() -> bool:
@@ -100,6 +127,23 @@ def execute_to_step(
     if not out_path.exists():
         return ExecutionResult(ok=False, error="runner finished but no STEP file was written")
 
+    diag: dict = {}
+    for line in (proc.stdout or "").splitlines():
+        if line.startswith("DIAG:"):
+            import json
+
+            try:
+                diag = json.loads(line[len("DIAG:") :])
+            except ValueError:
+                diag = {}
+            break
+
     return ExecutionResult(
-        ok=True, step_path=str(out_path), step_bytes_len=out_path.stat().st_size
+        ok=True,
+        step_path=str(out_path),
+        step_bytes_len=out_path.stat().st_size,
+        n_solids=diag.get("n_solids"),
+        volume_mm3=diag.get("volume_mm3"),
+        bbox_mm=diag.get("bbox_mm"),
+        is_valid=diag.get("is_valid"),
     )

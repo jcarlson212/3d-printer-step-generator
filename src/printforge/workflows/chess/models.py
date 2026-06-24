@@ -68,6 +68,11 @@ class ChessWorkflowRequest(BaseModel):
     export_step: bool = Field(
         default=True, description="Run the CAD code to export a .step (needs the 'cad' extra)."
     )
+    max_repairs: int = Field(
+        default=2, ge=0, le=5,
+        description="If STEP export fails, feed the error back to the model to fix its "
+        "code and retry, up to this many times.",
+    )
 
     @model_validator(mode="after")
     def _validate(self) -> ChessWorkflowRequest:
@@ -134,6 +139,8 @@ class PieceArtifact(BaseModel):
     step_path: str | None = None
     step_bytes_len: int | None = None
     error: str | None = None
+    stages: int = 0  # how many build-loop iterations this piece took
+    warnings: list[str] = Field(default_factory=list)  # non-blocking check warnings
 
 
 class WorkflowResult(BaseModel):

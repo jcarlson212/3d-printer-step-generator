@@ -32,7 +32,8 @@ DEFAULT_MODELS: dict[Provider, str] = {
     Provider.ANTHROPIC: "claude-opus-4-8",
     Provider.OPENAI: "gpt-4.1",
     Provider.LMSTUDIO: "local-model",
-    Provider.BEDROCK: "us.anthropic.claude-opus-4-8-v1:0",
+    # Global cross-region inference profile (matches the account's 30M tok/min quota).
+    Provider.BEDROCK: "global.anthropic.claude-opus-4-8",
 }
 
 

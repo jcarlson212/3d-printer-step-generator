@@ -68,6 +68,17 @@ result = result - engrave
 export_step(result, "out.step")
 ```
 
+## Common mistakes to avoid
+- `Polyline`, `Line`, `Spline`, `Bezier`, `RadiusArc` are **BuildLine** objects. Use
+  them only inside `with BuildLine() as l:` -- never directly in a `BuildSketch`.
+  To make a face from an outline: build the line in `BuildLine`, then
+  `make_face()` inside `BuildSketch`.
+- Don't mix the builder API (`with BuildPart()`) and the algebra API (`+`/`-` on
+  objects) in the same expression. Pick one approach per solid.
+- `loft()` / `revolve()` / `extrude()` are operations that need an active
+  `BuildPart`/`BuildSketch` context (builder API).
+- Every sketch outline must be **closed** before `make_face()`.
+
 ## Rules of thumb
 - One connected, watertight, manifold solid bound to `result`.
 - Name dimensions as variables at the top so the piece is rescalable.

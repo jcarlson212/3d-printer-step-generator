@@ -51,6 +51,11 @@ def generate_piece(
         model,
         output_type=CadGeneration,
         system_prompt=template.system_prompt(),
+        # CAD code + a thorough explanation is long; give the model room so the
+        # output isn't truncated before `detailed_explanation`, and allow a few
+        # re-tries if the structured output comes back incomplete.
+        model_settings={"max_tokens": 16384},
+        retries=3,
     )
     user_prompt = template.user_prompt(
         machine=machine,
@@ -76,3 +81,47 @@ def generate_piece(
 
     result = agent.run_sync(prompt_input if reference_images else user_prompt)
     return result.output
+
+
+def revise_piece(
+    template: BasePieceTemplate,
+    *,
+    provider_cfg: ProviderConfig,
+    prev_code: str,
+    observation: str,
+    executed: bool,
+) -> CadGeneration:
+    """Revise CAD code given an observation (a runtime error and/or geometry checks).
+
+    This is the "reflect + act again" step of the build loop. ``executed`` is False
+    when the code raised (fix the bug) and True when it ran but failed checks
+    (improve the geometry).
+    """
+    model = build_model(provider_cfg)
+    agent = Agent(
+        model,
+        output_type=CadGeneration,
+        system_prompt=template.system_prompt(),
+        model_settings={"max_tokens": 16384},
+        retries=3,
+    )
+    if executed:
+        header = (
+            "Your previous code ran and exported a solid, but it failed these validation "
+            "checks. Revise the code to satisfy them while preserving the design intent."
+        )
+    else:
+        header = (
+            "Your previous code failed to execute. Fix the error while preserving the "
+            "design intent. Common cause: using a BuildLine-only object "
+            "(Polyline/Line/Spline/Bezier) outside a `with BuildLine()` block, or mixing "
+            "the builder and algebra APIs."
+        )
+    prompt = (
+        f"{header}\n\n"
+        f"--- PREVIOUS CODE ---\n{prev_code}\n\n"
+        f"--- OBSERVATION ---\n{observation}\n\n"
+        "Return the corrected, complete code (still assigning the final solid to "
+        "`result`) and an updated detailed_explanation noting what changed and why."
+    )
+    return agent.run_sync(prompt).output

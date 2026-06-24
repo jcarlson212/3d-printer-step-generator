@@ -14,9 +14,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from printforge.core.agent import generate_piece
+from printforge.core.build_loop import build_piece
 from printforge.core.delivery import Attachment, deliver
-from printforge.core.executor import execute_to_step
 from printforge.core.prompt import PriorPieceContext
 from printforge.core.registry import resolve_machine_material
 
@@ -111,12 +110,14 @@ def run_chess_workflow(
     prior: list[PriorPieceContext] = []
 
     for idx, (color, piece) in enumerate(units, start=1):
-        say(f"[{idx}/{len(units)}] Generating {color.value} {piece.value}...")
+        say(f"[{idx}/{len(units)}] Building {color.value} {piece.value}...")
         template = get_template(piece)
         target = request.target_for(piece)
         gotchas = request.gotchas_for(piece)
+        step_path = order_dir / _step_filename(color.value, piece.value)
 
-        gen = generate_piece(
+        # ReAct-style build loop: generate -> execute -> validate -> revise -> ...
+        outcome = build_piece(
             template,
             provider_cfg=request.provider,
             machine=machine,
@@ -125,37 +126,42 @@ def run_chess_workflow(
             theme=request.theme,
             target=target,
             gotchas=gotchas,
+            out_path=step_path,
             prior=prior,
             personalization=personalization or None,
             reference_images=reference_images or None,
+            max_iters=request.max_repairs + 1,
+            progress=lambda m: say(f"      {m}"),
         )
-
-        # Persist the generated code + explanation for traceability.
-        stem = f"{color.value}_{piece.value}"
-        (order_dir / f"{stem}.py").write_text(gen.cad_code, encoding="utf-8")
-        (order_dir / f"{stem}.explanation.md").write_text(
-            gen.detailed_explanation, encoding="utf-8"
-        )
+        gen = outcome.generation
 
         artifact = PieceArtifact(
             color=color,
             piece=piece,
             cad_code=gen.cad_code,
             detailed_explanation=gen.detailed_explanation,
+            stages=len(outcome.stages),
+            warnings=outcome.report.warnings,
         )
-
-        if request.export_step:
-            say(f"      Exporting STEP for {color.value} {piece.value}...")
-            step_path = order_dir / _step_filename(color.value, piece.value)
-            exec_res = execute_to_step(gen.cad_code, step_path)
-            if exec_res.ok:
-                artifact.step_filename = _step_filename(color.value, piece.value)
-                artifact.step_path = exec_res.step_path
-                artifact.step_bytes_len = exec_res.step_bytes_len
-                say(f"      STEP written ({exec_res.step_bytes_len} bytes).")
+        if outcome.execution.ok:
+            artifact.step_filename = _step_filename(color.value, piece.value)
+            artifact.step_path = outcome.execution.step_path
+            artifact.step_bytes_len = outcome.execution.step_bytes_len
+            if outcome.ok:
+                say(f"      STEP written ({outcome.execution.step_bytes_len} bytes), "
+                    f"checks passed in {len(outcome.stages)} iteration(s).")
             else:
-                artifact.error = exec_res.error
-                say(f"      STEP not exported: {exec_res.error}")
+                say(f"      STEP written but {len(outcome.report.warnings)} warning(s) remain.")
+        elif not outcome.execution.skipped:
+            artifact.error = outcome.execution.error
+            say(f"      STEP not exported after {len(outcome.stages)} iteration(s).")
+
+        # Persist the final code + explanation for traceability.
+        stem = f"{color.value}_{piece.value}"
+        (order_dir / f"{stem}.py").write_text(artifact.cad_code, encoding="utf-8")
+        (order_dir / f"{stem}.explanation.md").write_text(
+            artifact.detailed_explanation, encoding="utf-8"
+        )
 
         artifacts.append(artifact)
         prior.append(
